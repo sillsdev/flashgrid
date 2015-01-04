@@ -6,7 +6,7 @@ from aqt.qt import *
 from aqt.utils import showInfo, askUserDialog, getFile
 from aqt.utils import mungeQA, getBase, openLink, tooltip, askUserDialog
 from anki.utils import json
-
+from aqt.webview import AnkiWebView
 from grid import Ui_gridDialog
 
 # from PyQt4.QtGui import QMessageBox  #done for us already?
@@ -31,7 +31,7 @@ class GridDlg(QDialog):
 # Do some monkey patching to wrap more functionality around _showQuestion    
 from aqt.reviewer import Reviewer
 
-def myShowAnswerPlain(self, card, view):
+def myShowAnswerGrid(self, card, view):
     c = card
     origState = self.state
     self.state = "answer"
@@ -41,9 +41,19 @@ def myShowAnswerPlain(self, card, view):
     #if self.autoplay(c):
     #    playFromText(a)
     # render and update bottom
+    
     a = self._mungeQA(a)
-    tmp = "_updateQA(%s, true);" % json.dumps(a)
+    #klass = "card card%d" % (c.ord+1)
+    #tmp = "_updateA(%s, true, %s);" % (json.dumps(a), klass)
+
+    #a = '"test answer"'
+
+    tmp = '_updateA("cell1", %s);' % (json.dumps(a))
+       
+    
     #self.web.eval(tmp)  # NO, instead of the Reviewer doing this, have the view do it
+    view.page().mainFrame().evaluateJavaScript(tmp)
+    tmp = '_updateA("cell4", %s);' % (json.dumps(a))
     view.page().mainFrame().evaluateJavaScript(tmp)
     #self._showEaseButtons() # NO, not in the grid
     # user hook
@@ -56,7 +66,10 @@ def myShowQuestion(self):
 
     #showInfo("pretend this is a grid")
     w = GridDlg(self)
-    v = w.ui.gridView  # type of v: AnkiWebView
+    self._popupGrid = w
+    
+    v = w.ui.gridView  # type of v: QtWebKit.QWebView or its AnkiWebView subclass
+    v.setLinkHandler(self._linkHandler)
 
     #scratch pad:
     #import aqt.webview
@@ -64,6 +77,7 @@ def myShowQuestion(self):
     #from PyQt4 import QtCore, QtGui
     #from PyQt4 import QtWebKit
     #QtWebKit.QWebView().page().mainFrame().toHtml()
+    
     
     #from PyQt4 import QtGui.QDialog, QtWebKit.
     #x = QtGui.QDialog().
@@ -76,37 +90,94 @@ def myShowQuestion(self):
     #TEST:
     html = """
 <!doctype html>
-<html><head><style></style>
+<html>
+
+<head><style></style>
+<script>
+function _append (id, t) {
+  var target = document.getElementById(id);
+  target.innerHTML += t;
+}
+
+function _updateA (cell, answer) {
+    _append(cell, answer);
+};
+
+</script>
 </head>
-<body class=""><table>
+<body class="">
+<div id=qa></div>
+<p><a href="closePopup">close</a></p>
+<p>Table:
+</p>
+<table><tbody><tr>
+  <td id="cell1" class="cell">1.</td>
+  <td id="cell2" class="cell">2.</td>
+</tr><tr>
+  <td id="cell3" class="cell">3.</td>
+  <td id="cell4" class="cell">4.</td>
+</tr></tbody></table>
+<script>
+  _append("qa", ".");
+  //var cells = document.getElementsByClassName('cell');
+  //for (var i = 0; i < cells.length; ++i) {
+  //  var cell = cells[i];
+  //  _append(cell.id, " [card "+i+"]");  
+}  
+</script>
+</body>
+
+</html>
+"""
+
+    """
+<br/>
+<p id="p1"></p>
+<p id="p2"></p>
+<table>
 <tr>
-<td><iframe src="%s"></iframe></td>
-<td><iframe src="%s"></iframe></td>
+<td><iframe id="t00" src="about:blank"></iframe></td>
+<td><iframe id="t01" src="%s"></iframe></td>
 </tr>
 <tr>
-<td><iframe src="%s"></iframe></td>
-<td><iframe src="%s"></iframe></td>
+<td><iframe id="t10" src="%s"></iframe></td>
+<td><iframe id="t11" src="%s"></iframe></td>
 </tr>
-</table></body></html>""" % ("frame1.html",  "temp.tmp.html",  "frame1.html",  "frame1.html")
+</table></body></html>""" % ("./frame1.html",  "../frame1.html",  "C:\\Users\\user57\\Documents\\Anki\\User 1\\collection.media\\frame1.html")
 
     '''
-    from aqt.webview import AnkiWebView
     v1 = AnkiWebView()
     v1.stdHtml(self._revHtml, self._styles(),
-        loadCB=lambda x: self._showAnswerPlain(self.card, v),
-        head=base)  # needs to be _showAnswerPlain
+        loadCB=lambda x: self._showAnswerGrid(self.card, v),
+        head=base)  # needs to be _showAnswerGrid
     '''
     # DON'T show answer / ease buttons
 
-    #QWebView.setHtml(v, html)
+    v.setHtml(html)
 
-    #v.stdHtml('', loadCB=lambda x: self._showAnswerPlain(self.card, v), head=base)
-    v.stdHtml(self._revHtml, self._styles(),
-        loadCB=lambda x: self._showAnswerPlain(self.card, v),
-        head=base) 
+    callback = lambda x: self._showAnswerGrid(self.card, v)
+    #callback = None
 
-    #h = v.page().mainFrame().toHtml()
-    #showInfo(h)
+    t00 = AnkiWebView()
+    t00.stdHtml(self._revHtml, self._styles(),
+        loadCB=callback,
+        head=base)
+    
+    #h1 = "[" + t00.page().mainFrame().toPlainText() + "]"  #.toHtml()
+    h2 = t00.page().mainFrame().toHtml()
+
+    #tmp = '_append("0a", "%s");' % h1  # h2 w/b a big mess
+    #v.page().mainFrame().evaluateJavaScript(tmp) # eval on v, NOT on self
+
+    self.card.tmpHtml = h2
+    
+    
+    #frames = v.page().mainFrame().childFrames()
+    #for frame in frames:
+    #    frame.setHtml(h1)
+    #frames[0].setHtml(h2)
+    #v.setHtml(h2)
+
 
     v.show()
     w.show()
@@ -115,11 +186,17 @@ def myShowQuestion(self):
         pass
         #values = dlg.getValues()
     
+def myClosePopupGrid(self, r=0): 
+    self._popupGrid.done(r)
+    self._popupGrid = None
+    
+    
 origShowQuestion = Reviewer._showQuestion
 Reviewer._showQuestion = myShowQuestion
-Reviewer._showAnswerPlain = myShowAnswerPlain
+Reviewer._showAnswerGrid = myShowAnswerGrid
 
 
+Reviewer._closePopupGrid = myClosePopupGrid
 
 '''
 # We probably won't get enough info/power to be able to just use the hook.
