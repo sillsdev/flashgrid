@@ -13,6 +13,8 @@ from main import GridDlg
 
 def myShowQuestion(self):
     origShowQuestion(self) # we're wrapping this, so we'll still run it
+    if not GridDlg.gridOn: return
+    
     #showInfo(self.state)
     #return
 
@@ -21,9 +23,13 @@ def myShowQuestion(self):
         return
     # Probably not. # TODO: find something that blocks this when in "question" mode (e.g. on closing the Fields dialog) 
 
+    #import time
+    #time.sleep(2)
+
     #showInfo("pretend this is a grid")
     w = GridDlg(self, Reviewer.gridSize())
-    w.resize(800, 600)  # W, H
+    w.resize(1024, 600)  # dialog window size: W, H
+    w.move(100,30) # TODO: automate this based on screen size, but remember (this session) if the user moves/resizes it. Simplest option is to not to destroy the object on close. 
     
     v = w.ui.gridView  # type of v: QtWebKit.QWebView or its AnkiWebView subclass
 
@@ -32,42 +38,67 @@ def myShowQuestion(self):
 
     html = GridDlg.gridHtml(self._css, base) #... we insert this once for the whole grid
 
-    callback = lambda x: self._showAnswerGrid(self.card, v)
+    callback = lambda x: self._showAnswerGrid(self.card, w)
 
     v.setHtml(html, callback)  # pass in the 'empty' container, plus the function that'll fill it in
 
     v.show()
     w.show()
         
-    showInfo("The answer is %s" % w._correct)
+    #showInfo("The answer is %s" % w.correct)
 
     if w.exec_():
         # if it returns 1, show the next flashcard
         self._showAnswer() # WARNING: this could eventually cause a stack overflow, I think, but there's currently no hook for asking Anki to do this for us. -Jon  
 
 
-def myShowAnswerGrid(self, card, view):
+def myShowAnswerGrid(self, card, dialog):
+    
+    view = dialog.ui.gridView
     
     #view.setHtml( self.web.page().mainFrame().toHtml() )  # DELETE THIS LINE (just a test)
     #return
     
     gridSize = Reviewer.gridSize()
 
+    deckName = mw.col.decks.current()['name']
+    cards = mw.col.findCards("-is:suspended deck:%s" % deckName)
+    #e.g.  mw.col.findCards('-is:suspended deck:indonesian-lift-dictionary-Orig')
+
     toInsert = ''
-    for i in range(1, gridSize*gridSize+1):
-        html = renderOneAnswer(self, card, view, i)  # TODO: remove view, i
+    i = 1
+    for c in cards:  # at most; but usually we'll quit at gridSize^2
+        if (c == card.id):
+            continue
+        if (i == dialog.correct):
+            cellCard = card
+        else:
+            cellCard = mw.col.getCard(c) # mw.col.findCards("cid:%s" % c)
+            if not cellCard or (cellCard.template() != card.template()):
+                continue  # something went wrong finding that card (throw exception?)
+
+        html = renderOneAnswer(self, cellCard)
         toInsert += GridDlg.gridHtmlCell(i, html)  # this += isn't likely to ever get slow, but if so, build an ins[] list and later do ''.join(ins)
         if ((i % gridSize == 0) and (i < gridSize*gridSize)):  # use modulus to identify/create end of row
             toInsert += GridDlg.gridHtmlBetweenRows()
 
-    klass = "card card%d" % (card.ord+1)            
-    toInsert = '<table class="%s"><tbody><tr>%s</tr><tbody></table>' % (klass, toInsert)
+        if (i >= gridSize*gridSize):
+            break
+        i += 1
+
+    klass = "card card%d" % (card.ord+1)
+    toInsert = '<table class="%s"><tbody><tr>%s</tr></tbody></table>' % (klass, toInsert) 
     #test: toInsert += '<img src="file:///c:/Users/user57/Documents/Anki/User 1/collection.media/lift-dictionary_abu.png" />'
     tmp = json.dumps(toInsert)
-    tmp = '_append("%s", %s);' % ('insertHere', tmp)
+    tmp = '_append("%s", %s);' % ('insertGridHere', tmp)
 
     #tmp = '_updateA("%s", %s);' % (str(cellId), html)
     #self.web.eval(tmp)  # NO, instead of the Reviewer doing this, have the view do it
+    view.page().mainFrame().evaluateJavaScript(tmp)
+
+    cardFrontHtml = renderOneAnswer(self, card)
+    tmp = json.dumps(cardFrontHtml)
+    tmp = '_append("%s", %s);' % ('insertFrontHere', tmp)
     view.page().mainFrame().evaluateJavaScript(tmp)
 
     #self._showEaseButtons() # NO, not in the grid
@@ -107,9 +138,8 @@ def myShowAnswerGrid(self, card, view):
     '''
 
 
-def renderOneAnswer(self, card, view, cellId):
+def renderOneAnswer(self, card):
     ''' Creates HTML to plug directly in as the specified <TD> table cell.
-    cellId is an integer ID or int as a string, e.g. 2 or "2"
     '''
 
     origState = self.state
@@ -118,7 +148,7 @@ def renderOneAnswer(self, card, view, cellId):
     c = card
     
     #a = c._getQA()['a'] # without the style info
-    a = c.a() # NO, we don't want the style info
+    a = c.a() # with the style info
     
     # play audio?  # NO, not in the grid (except maybe on hover?)
     #if self.autoplay(c):
@@ -150,7 +180,7 @@ def myGridSize():
 @staticmethod
 def myToggleGridSize():
     Reviewer._gridSize = 3 if (Reviewer._gridSize == 2) else 2
-    showInfo("Ok. Toggled to %s." % Reviewer._gridSize)
+    showInfo("Ok. Toggled to %s x %s." % (Reviewer._gridSize, Reviewer._gridSize))  # msgbox / messagebox
 
 # Do some monkey patching to wrap more functionality around _showQuestion    
 
@@ -159,7 +189,7 @@ Reviewer._showQuestion = myShowQuestion
 
 Reviewer._showAnswerGrid = myShowAnswerGrid
 
-# TODO: consider moving gridSize() over to main.py where it would be more legit (no moenkey patch)
+# TODO: consider moving gridSize() over to main.py where it would be more legit (i.e. no monkey patch)
 Reviewer._gridSize = 2
 Reviewer.toggleGridSize = myToggleGridSize
 Reviewer.gridSize = myGridSize
