@@ -1,5 +1,5 @@
-''' This is a monkey patch on reviewer.py
-It adds a grid dialog in a popup window
+''' This is an addon (/extension/plugin) to the Reviewer class found in reviewer.py
+It adds a grid dialog (currently as a popup window)
 '''
 from aqt.reviewer import Reviewer
 from aqt import mw
@@ -27,7 +27,7 @@ def myShowQuestion(self):
     #time.sleep(2)
 
     #showInfo("pretend this is a grid")
-    w = GridDlg(self, Reviewer.gridSize())
+    w = GridDlg(self)
     w.resize(1024, 600)  # dialog window size: W, H
     w.move(100,30) # TODO: automate this based on screen size, but remember (this session) if the user moves/resizes it. Simplest option is to not to destroy the object on close. 
     
@@ -104,6 +104,7 @@ def myShowAnswerGrid(self, card, dialog):
     #self._showEaseButtons() # NO, not in the grid
    
     h = view.page().mainFrame().toHtml()
+    h = h.encode('utf-8')
     f = open('gridtemp.tmp.html', 'w')
     f.write(h)
     f.close()

@@ -1,21 +1,27 @@
-import string, random
+import string, random, re
 from aqt.utils import showInfo
+from anki.utils import json
 from aqt import mw
 from aqt.qt import *
 #from aqt.utils import showInfo, askUserDialog, getFile
 #from aqt.utils import mungeQA, getBase, openLink, tooltip, askUserDialog
-#from anki.utils import json
 from aqt.webview import AnkiWebView
+from aqt.reviewer import Reviewer
 from grid import Ui_gridDialog
-
-# from PyQt4.QtGui import QMessageBox  #done for us already?
+   # TODO in grid.ui: CHANGES TO REDO IN DESIGNER: use of AnkiWebView; removal of Ok/Cancel buttons
+   # OR, eliminate grid.py altogether (it's just one UI element anyway)
 
 
 class GridDlg(QDialog):
 
+    _gridSize = 2
+    def toggleGridSize(self):
+        GridDlg._gridSize = 3 if (GridDlg._gridSize == 2) else 2
+        showInfo("Ok. Toggled to %s x %s." % (GridDlg._gridSize, GridDlg._gridSize))  # msgbox / messagebox
+
     def myLinkHandler(self, url):
         ''' Method for AnkiWebView. Currently being patched into the view object in our dialog.
-        Consider subclassing instead.
+        TODO: Consider subclassing instead.
         '''
         if url.lower().startswith("closePopup".lower()):
             ret = 0
@@ -32,7 +38,7 @@ class GridDlg(QDialog):
         if (n == 0 or n == self.correct):  # 0 = cancel
             self.done(n)
             
-    def __init__(self, reviewer, gridSize):
+    def __init__(self, reviewer):
         QDialog.__init__(self)
         
         # Create the UI dialog (created using Qt Designer)
@@ -44,7 +50,8 @@ class GridDlg(QDialog):
         v.setLinkHandler(self.myLinkHandler)
         #was v.setLinkHandler(self._linkHandler)
         
-        self.correct = random.randint(1, gridSize*gridSize)
+        gs = GridDlg._gridSize
+        self.correct = random.randint(1, gs * gs)
 
         # Connect up the buttons.
         #self.ui.okButton.clicked.connect(self.accept)
@@ -124,7 +131,7 @@ td a:hover{background:blue;color:#fff}
 /* need to add styling to remove blue underlining from a tags */
 '''
     
-        tmp = '''
+        mainHtml = '''
 <!doctype html>
 <html>
 
@@ -140,7 +147,6 @@ table {width:100%%; }
 td.card{background:gray;border:1px solid #000;width:50%%;}
 td a{display:block; text-decoration:none}
 td:hover{background:blue;color:#fff}
-/* need to add styling to remove blue underlining from a tags */
 </style>
 <script>
 function _append (id, t) {
@@ -164,38 +170,24 @@ function _append (id, t) {
 
 </html>
 ''' % (style, head)
-        return tmp
-
-# old junk...
-
-    '''
-<br/>
-<p id="p1"></p>
-<p id="p2"></p>
-<table>
-<tr>
-<td><iframe id="t00" src="about:blank"></iframe></td>
-<td><iframe id="t01" src="%s"></iframe></td>
-</tr>
-<tr>
-<td><iframe id="t10" src="%s"></iframe></td>
-<td><iframe id="t11" src="%s"></iframe></td>
-</tr>
-</table></body></html>''' % ("./frame1.html",  "../frame1.html",  "C:\\Users\\user57\\Documents\\Anki\\User 1\\collection.media\\frame1.html")
+        return mainHtml
 
 GridDlg.gridOn = True
 
 def onGridOffOnClicked():
     GridDlg.gridOn = not GridDlg.gridOn
-    showInfo("Ok, toggled. (Use grids = %s)" % (GridDlg.gridOn))  # msgbox / messagebox
+    tmp = "On" if GridDlg.gridOn else "Off"
+    showInfo("FlashGrids are now %s" % (tmp))  # msgbox / messagebox
 
 def onSizeClicked():
     from aqt.reviewer import Reviewer
-    Reviewer.toggleGridSize()
-    
-# TODO: Need another menu item for toggling "Grid Mode" on and off    
+    GridDlg.toggleGridSize()
 
+"""
 class StringGridOffOn(str):
+    ''' Trying to subclass string so we can pass in a dynamic object rather than
+    a static string for the menu item text. Doesn't work yet, though.
+    '''
     def __str__(self):
         changeTo = 'off' if GridDlg.gridOn else 'on'
         return "FlashGrid: turn grid drilling %s" % changeTo
@@ -204,29 +196,19 @@ class StringGridOffOn(str):
     def __repr__(self):
         changeTo = 'off' if GridDlg.gridOn else 'on'
         return "FlashGrid: turn grid drilling %s" % changeTo
+
+stringGen = StringGridOffOn('asdf')
+"""
     
+stringGen = "FlashGrid toggle off/on"
 # create a new menu item in Anki
-action = QAction("FlashGrid toggle off/on", mw)
+action = QAction(stringGen, mw)
 # set it to call our function when it's clicked
 mw.connect(action, SIGNAL("triggered()"), onGridOffOnClicked)
 # and add it to the tools menu
-mw.form.menuTools.addAction(action)
-
-stringGen = StringGridOffOn('asdf')
-action = QAction(stringGen, mw)
-mw.connect(action, SIGNAL("triggered()"), onGridOffOnClicked)
 mw.form.menuTools.addAction(action)
 
 action = QAction("FlashGrid toggle grid size", mw)
 mw.connect(action, SIGNAL("triggered()"), onSizeClicked)
 mw.form.menuTools.addAction(action)
 
-
-'''
-# We probably won't get enough info/power to be able to just use the hook.
-from anki.hooks import addHook
-def onShowQuestion():
-    showInfo("pretend this is a grid")
-
-addHook('showQuestion', onShowQuestion)
-'''
