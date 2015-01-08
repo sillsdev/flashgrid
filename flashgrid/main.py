@@ -59,26 +59,11 @@ class GridDlg(QDialog):
 
         # Prepare the HTML container (i.e. grid without flashcard content)
 
-
-    '''    
-    @staticmethod
-    def extractStyle(html):
-        s, h = '', html
-        import re
-        pat = "(?s)<style>.*?</style>"
-        match = re.search(pat, html)
-        if match:
-            s = match.group(0)
-            html = re.sub(pat, '', html)
-        return s, h
-    '''
-
-    #alphabet = string.lowercase[:26] #string.letters[26:52] # grabbing the lowercase ones
     
     @staticmethod
     def toLetter(n):
-        tmp = string.lowercase[n-1]
-        #tmp = GridDlg._alphabet[n]
+        letters = string.lowercase  #OR alphabet = string.letters[26:52] # grabbing the lowercase ones 
+        tmp = letters[n-1]
         return tmp
     
     @staticmethod
@@ -88,6 +73,128 @@ class GridDlg(QDialog):
     
     # TODO: provide KeyHandler that uses toNumber() to convert a keystroke into a call to closeMaybe()
     
+    def showAnswerGrid(self, card, rev):
+        dialog = self
+        
+        view = dialog.ui.gridView
+       
+        gridSize = GridDlg._gridSize
+    
+        deckName = mw.col.decks.current()['name']
+        search = '-is:suspended deck:"%s"' % deckName
+        cards = mw.col.findCards(search)  #e.g.  '-is:suspended deck:indonesian-lift-dictionary-Orig'
+
+        
+        toInsert = ''
+        i = 1
+        for c in cards:  # at most; but usually we'll quit at gridSize^2
+            if (c == card.id):
+                continue
+            if (i == dialog.correct):
+                cellCard = card
+            else:
+                cellCard = mw.col.getCard(c) # mw.col.findCards("cid:%s" % c)
+                if not cellCard or (cellCard.template() != card.template()):
+                    continue  # something went wrong finding that card (throw exception?)
+    
+            html = self.renderOneQA(rev, cellCard, "answer")
+            toInsert += GridDlg.gridHtmlCell(i, html)  # this += isn't likely to ever get slow, but if so, build an ins[] list and later do ''.join(ins)
+            if ((i % gridSize == 0) and (i < gridSize*gridSize)):  # use modulus to identify/create end of row
+                toInsert += GridDlg.gridHtmlBetweenRows()
+    
+            if (i >= gridSize*gridSize):
+                break
+            i += 1
+    
+        klass = "card card%d" % (card.ord+1)
+        toInsert = '<table class="%s"><tbody><tr>%s</tr></tbody></table>' % (klass, toInsert) 
+        #test: toInsert += '<img src="file:///c:/Users/user57/Documents/Anki/User 1/collection.media/lift-dictionary_abu.png" />'
+        tmp = json.dumps(toInsert)
+        tmp = '_append("%s", %s);' % ('insertGridHere', tmp)
+    
+        #tmp = '_updateA("%s", %s);' % (str(cellId), html)
+        #self.web.eval(tmp)  # NO, instead of the Reviewer doing this, have the view do it
+        view.page().mainFrame().evaluateJavaScript(tmp)
+    
+        cardFrontHtml = self.renderOneQA(rev, card, "question")
+        tmp = json.dumps(cardFrontHtml)
+        tmp = '_append("%s", %s);' % ('insertFrontHere', tmp)
+        view.page().mainFrame().evaluateJavaScript(tmp)
+    
+        #self._showEaseButtons() # NO, not in the grid
+       
+        h = view.page().mainFrame().toHtml()
+        h = h.encode('utf-8')
+        f = open('gridtemp.tmp.html', 'w')
+        f.write(h)
+        f.close()
+        
+    
+    def renderOneQA(self, rev, card, qa = "answer"):
+        ''' Creates HTML to plug directly in as the specified <TD> table cell.
+        '''
+    
+        origState = rev.state
+        rev.state = qa  # necessary to get correct results from _mungeQA()
+        
+        c = card
+        
+        if qa == "answer":
+            html = c.a()
+        else:
+            html = c.q()
+        
+        # play audio?  # NO, not in the grid (except maybe on hover?)
+        #if rev.autoplay(c):
+        #    playFromText(a)
+        # render and update bottom
+        
+        html = rev._mungeQA(html)
+        a = html
+        klass = "card card%d" % (c.ord+1)
+        #tmp = "_updateA(%s, true, %s);" % (json.dumps(a), klass)
+    
+        # DON'T show answer / ease buttons
+    
+        rev.state = origState
+    
+        html = a
+        # html = json.dumps(a) # NOT until we've added our html
+    
+        # user hook
+        #runHook('showAnswer')  # NO, we assume other addons' behavior here is unwanted
+    
+        tmp = '<div class="%s">%s</div>' % (klass, html)
+        return tmp
+        
+        
+        #frames = v.page().mainFrame().childFrames()
+        #for frame in frames:
+        #    frame.setHtml(h1)
+        #frames[0].setHtml(h2)
+        #v.setHtml(h2)
+        
+        '''
+        # need a loop here
+        flakCard = AnkiWebView()  # again, a view we won't actually display, but it renders a cell's HTML for us
+        flakCard.stdHtml(self._revHtml, self._styles(),
+            loadCB=callback,
+            head=base)
+        '''
+    
+        '''    
+        @staticmethod
+        def extractStyle(html):
+            s, h = '', html
+            import re
+            pat = "(?s)<style>.*?</style>"
+            match = re.search(pat, html)
+            if match:
+                s = match.group(0)
+                html = re.sub(pat, '', html)
+            return s, h
+        '''
+   
     @staticmethod
     def gridHtmlCell(cellId, content, linkLabel=None):
         cellLetter = GridDlg.toLetter(cellId)
