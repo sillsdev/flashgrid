@@ -29,8 +29,11 @@ def myShowQuestion(self):
 
     #showInfo("pretend this is a grid")
     w = GridDlg(rev)
-    w.resize(800, 530)  # dialog window size: W, H
-    w.move(224,150) # TODO: automate this based on screen size, but remember (this session) if the user moves/resizes it. Simplest option is to not to destroy the object on close. 
+    screen = QDesktopWidget().screenGeometry()
+    w.setGeometry(0, 0, screen.width(), screen.height())
+    #w.resize(800, 530)  # dialog window size: W, H
+    #w.move(224,150) # TODO: automate this based on screen size, but remember (this session) if the user moves/resizes it. Simplest option is to not to destroy the object on close. 
+    w.move(0, 0)
     
     v = w.ui.gridView  # type of v: QtWebKit.QWebView or its AnkiWebView subclass
 

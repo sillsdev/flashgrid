@@ -14,8 +14,11 @@ from grid import Ui_gridDialog
 
 class GridDlg(QDialog):
 
+    _appLabel="FlashGrid v0.10"
     _gridSize = 2
-    def toggleGridSize(self):
+    
+    @staticmethod
+    def toggleGridSize():
         GridDlg._gridSize = 3 if (GridDlg._gridSize == 2) else 2
         showInfo("Ok. Toggled to %s x %s." % (GridDlg._gridSize, GridDlg._gridSize))  # msgbox / messagebox
 
@@ -150,6 +153,7 @@ class GridDlg(QDialog):
         # render and update bottom
         
         html = rev._mungeQA(html)
+        html = GridDlg.removeFront(html)
         a = html
         klass = "card card%d" % (c.ord+1)
         #tmp = "_updateA(%s, true, %s);" % (json.dumps(a), klass)
@@ -182,6 +186,15 @@ class GridDlg(QDialog):
             head=base)
         '''
     
+    @staticmethod
+    def removeFront(cardString):
+        s2 = s = cardString
+        #pat = '(?s){{FrontSide}}.*<hr.*?>'
+        #s2 = re.sub(pat, '', s)
+        #pat = '(?s)({{FrontSide}}|<hr.*?>)'  # use this if we get the monkey patch working
+        pat = '(?s)</style>.*?<hr.*?>'  # chop off anything preceding the first <hr> if one exists 
+        s3 = re.sub(pat, '</style>', s2)
+        return s3
         '''    
         @staticmethod
         def extractStyle(html):
@@ -197,8 +210,16 @@ class GridDlg(QDialog):
    
     @staticmethod
     def gridHtmlCell(cellId, content, linkLabel=None):
-        cellLetter = GridDlg.toLetter(cellId)
-        linkLabel = linkLabel if (linkLabel == '') else '%s.' % cellLetter
+        ''' To get no label, you must explicitly pass in an empty string.
+        '''
+        if (linkLabel != ''):
+            cellLetter = GridDlg.toLetter(cellId)
+            linkLabel = '%s.' % cellLetter
+        else:
+            linkLabel = ''
+        
+        #cellLetter = GridDlg.toLetter(cellId)
+        #linkLabel = linkLabel if (linkLabel == '') else '%s.' % cellLetter
         
         # alternative:
         tmp = '''
@@ -249,6 +270,7 @@ font-weight: normal;
 }
 %s
 /* unique to FlashGrid */
+img { max-width: 90px; max-height: 90px; }
 table {width:100%%; }
 .cardFront {width:30%%;}
 td.card{background:gray;border:1px solid #000;width:50%%;}
@@ -272,11 +294,11 @@ function _append (id, t) {
   <!-- TODO: plus a Replay Audio button --> 
   <td><div id="insertGridHere"></div>  <!-- inner table, will be NxN based on gridSize setting -->
 </td></tr></tbody></table> 
-
+<p>%s</p>
 </body>
 
 </html>
-''' % (style, head)
+''' % (style, head, GridDlg._appLabel)
         return mainHtml
 
 GridDlg.gridOn = True
