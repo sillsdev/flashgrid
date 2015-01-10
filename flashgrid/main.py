@@ -53,8 +53,7 @@ class GridDlg(QDialog):
         v.setLinkHandler(self.myLinkHandler)
         #was v.setLinkHandler(self._linkHandler)
         
-        gs = GridDlg._gridSize
-        self.correct = random.randint(1, gs * gs)
+        self.correct = random.randint(1, GridDlg._gridSize**2)  # e.g. a number from 1 to 4 (inclusive)
 
         # Connect up the buttons.
         #self.ui.okButton.clicked.connect(self.accept)
@@ -80,48 +79,69 @@ class GridDlg(QDialog):
         dialog = self
         
         view = dialog.ui.gridView
+    
+        cardFrontHtml = self.renderOneQA(rev, card, "question")
+        tmp = json.dumps(cardFrontHtml)
+        tmp = '_append("%s", %s);' % ('insertFrontHere', tmp)
+        view.page().mainFrame().evaluateJavaScript(tmp)
        
-        gridSize = GridDlg._gridSize
+        gridw = GridDlg._gridSize
+        gridh = gridw # still assuming a square grid (for now anyway)
+        size = gridh*gridw
+        
+        dummy = '''
+not found
+'''
+        cards = [dummy for i in range(size)] # i.e. 4 or 9 dummies
+        cards[dialog.correct-1] = self.renderOneQA(rev, card, "answer")  # put in the real answer 
     
         deckName = mw.col.decks.current()['name']
         search = '-is:suspended deck:"%s"' % deckName
-        cards = mw.col.findCards(search)  #e.g.  '-is:suspended deck:indonesian-lift-dictionary-Orig'
-
+        cardsFound = mw.col.findCards(search)  #e.g.  '-is:suspended deck:indonesian-lift-dictionary-Orig'
+        random.shuffle(cardsFound)
+        cardsFound = cardsFound or []
         
-        toInsert = ''
-        i = 1
-        for c in cards:  # at most; but usually we'll quit at gridSize^2
-            if (c == card.id):
+        i = 0
+        for c in cardsFound:  # at most; but usually we'll quit after gridw*gridh
+            id = i+1  # these are offset by one since grid's id-numbering is 1-based but array is 0-based
+            if (c == card.id) or (id == dialog.correct):  # don't use current card nor steal its cell
+                i += 1
                 continue
-            if (i == dialog.correct):
-                cellCard = card
             else:
                 cellCard = mw.col.getCard(c) # mw.col.findCards("cid:%s" % c)
                 if not cellCard or (cellCard.template() != card.template()):
                     continue  # something went wrong finding that card (throw exception?)
     
-            html = self.renderOneQA(rev, cellCard, "answer")
-            toInsert += GridDlg.gridHtmlCell(i, html)  # this += isn't likely to ever get slow, but if so, build an ins[] list and later do ''.join(ins)
-            if ((i % gridSize == 0) and (i < gridSize*gridSize)):  # use modulus to identify/create end of row
-                toInsert += GridDlg.gridHtmlBetweenRows()
+            cards[i] = self.renderOneQA(rev, cellCard, "answer")
     
-            if (i >= gridSize*gridSize):
+            if (id >= size):
                 break
             i += 1
+        
+        for i in range(size):
+            txt = cards[i]
+            id = i+1
+            cards[i] = GridDlg.gridHtmlCell(id, txt)
+            if ((id % gridw == 0) and (id < size)):  # use modulus to identify/create end of row
+                cards[i] += GridDlg.gridHtmlBetweenRows()
+
+        '''
+        r = range(gridw, gridw*gridh, gridw)
+        for i in r:
+            cards[i-1] += GridDlg.gridHtmlBetweenRows()
+        '''
+        
+        toInsert = '\n'.join(cards)
     
         klass = "card card%d" % (card.ord+1)
-        toInsert = '<table class="%s"><tbody><tr>%s</tr></tbody></table>' % (klass, toInsert) 
-        #test: toInsert += '<img src="file:///c:/Users/user57/Documents/Anki/User 1/collection.media/lift-dictionary_abu.png" />'
+        toInsert = '''<table class="%s"><tbody><tr>
+        %s
+        </tr></tbody></table>''' % (klass, toInsert) 
+
         tmp = json.dumps(toInsert)
         tmp = '_append("%s", %s);' % ('insertGridHere', tmp)
     
-        #tmp = '_updateA("%s", %s);' % (str(cellId), html)
-        #self.web.eval(tmp)  # NO, instead of the Reviewer doing this, have the view do it
-        view.page().mainFrame().evaluateJavaScript(tmp)
-    
-        cardFrontHtml = self.renderOneQA(rev, card, "question")
-        tmp = json.dumps(cardFrontHtml)
-        tmp = '_append("%s", %s);' % ('insertFrontHere', tmp)
+        #self.web.eval(tmp)  # NO, instead of the Reviewer doing this, have the popup view do it
         view.page().mainFrame().evaluateJavaScript(tmp)
     
         #self._showEaseButtons() # NO, not in the grid
@@ -144,6 +164,15 @@ class GridDlg(QDialog):
         
         if qa == "answer":
             html = c.a()
+
+            #if there's a way to reach in and remove CardFront
+            #before it is rendered to html, that would be better.
+            '''
+            afmt = c.template()['afmt']
+            if GridDlg.needRemoveFront(afmt):
+                af = GridDlg.removeFront(afmt)
+                # temporarily swap afmt and af
+            '''
         else:
             html = c.q()
         
@@ -170,22 +199,21 @@ class GridDlg(QDialog):
     
         tmp = '<div class="%s">%s</div>' % (klass, html)
         return tmp
-        
-        
+
+        #Would using frames (iframes) allow us to zoom out instead of trying to resize images and fonts?        
         #frames = v.page().mainFrame().childFrames()
         #for frame in frames:
         #    frame.setHtml(h1)
         #frames[0].setHtml(h2)
         #v.setHtml(h2)
         
-        '''
-        # need a loop here
-        flakCard = AnkiWebView()  # again, a view we won't actually display, but it renders a cell's HTML for us
-        flakCard.stdHtml(self._revHtml, self._styles(),
-            loadCB=callback,
-            head=base)
-        '''
-    
+
+    '''    
+    @staticmethod
+    def needRemoveFront(cardString):
+        return ("{{FrontSide}}" in cardString) or ("<hr" in cardString) 
+    '''
+
     @staticmethod
     def removeFront(cardString):
         s2 = s = cardString
@@ -195,18 +223,19 @@ class GridDlg(QDialog):
         pat = '(?s)</style>.*?<hr.*?>'  # chop off anything preceding the first <hr> if one exists 
         s3 = re.sub(pat, '</style>', s2)
         return s3
-        '''    
-        @staticmethod
-        def extractStyle(html):
-            s, h = '', html
-            import re
-            pat = "(?s)<style>.*?</style>"
-            match = re.search(pat, html)
-            if match:
-                s = match.group(0)
-                html = re.sub(pat, '', html)
-            return s, h
-        '''
+
+    '''    
+    @staticmethod
+    def extractStyle(html):
+        s, h = '', html
+        import re
+        pat = "(?s)<style>.*?</style>"
+        match = re.search(pat, html)
+        if match:
+            s = match.group(0)
+            html = re.sub(pat, '', html)
+        return s, h
+    '''
    
     @staticmethod
     def gridHtmlCell(cellId, content, linkLabel=None):
@@ -219,7 +248,6 @@ class GridDlg(QDialog):
             linkLabel = ''
         
         #cellLetter = GridDlg.toLetter(cellId)
-        #linkLabel = linkLabel if (linkLabel == '') else '%s.' % cellLetter
         
         # alternative:
         tmp = '''
@@ -263,7 +291,8 @@ td a:hover{background:blue;color:#fff}
 <!doctype html>
 <html>
 
-<head><style>
+<head><meta charset="utf-8"/>
+<style>
 /* from Anki: */
 button {
 font-weight: normal;
