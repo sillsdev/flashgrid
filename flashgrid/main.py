@@ -383,3 +383,11 @@ action = QAction("FlashGrid toggle grid size", mw)
 mw.connect(action, SIGNAL("triggered()"), onSizeClicked)
 mw.form.menuTools.addAction(action)
 
+def onRestrictClicked():
+    mw.onCram('card:"my card type"')
+
+action = QAction("FlashGrid: filtered deck for one card type", mw)
+mw.connect(action, SIGNAL("triggered()"), onRestrictClicked)
+mw.form.menuTools.addAction(action)
+
+
