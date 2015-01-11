@@ -1,6 +1,7 @@
 ''' This is an addon (/extension/plugin) to the Reviewer class found in reviewer.py
 It adds a grid dialog (currently as a popup window)
 '''
+
 from aqt.reviewer import Reviewer
 from aqt import mw
 from aqt.qt import *
@@ -9,11 +10,13 @@ from aqt.utils import mungeQA, getBase, openLink, tooltip, askUserDialog
 from anki.utils import json
 from aqt.webview import AnkiWebView
 #from grid import Ui_gridDialog
-from main import GridDlg
+from main import GridDlg, gridHtml
 
-def myShowQuestion(self):
-    rev = self
-    origShowQuestion(self) # we're wrapping this, so we'll still run it
+def onShowQuestion():
+    rev = mw.reviewer
+    
+    #origShowQuestion(rev) # we're wrapping this, so we'll still run it
+    
     if not GridDlg.gridOn: return
     
     #showInfo(rev.state)
@@ -38,9 +41,9 @@ def myShowQuestion(self):
     v = w.ui.gridView  # type of v: QtWebKit.QWebView or its AnkiWebView subclass
 
     #see also: Reviewer._initWeb()
-    base = getBase(rev.mw.col)  # this is necessary, or the images won't display  
+    base = getBase(rev.mw.col)  # this is necessary, or the images won't display; however, it complicates links  
 
-    html = GridDlg.gridHtml(rev._css, base) #... we insert this once for the whole grid
+    html = gridHtml(rev._css, base) #... we insert this once for the whole grid
 
     callback = lambda x: w.showAnswerGrid(rev.card, rev)
 
@@ -56,14 +59,14 @@ def myShowQuestion(self):
         rev._showAnswer() # WARNING: this could eventually cause a stack overflow, I think, but there's currently no hook for asking Anki to do this for us. -Jon  
 
 
+#Originally, we used a monkey patch here, but now we use the standard hook Anki provides. 
 
-origShowQuestion = Reviewer._showQuestion
-Reviewer._showQuestion = myShowQuestion
+from anki.hooks import addHook
+addHook('showQuestion', onShowQuestion)
 
 
 
-
-# This UGLY MONKEY PATCh is because the actual code is in the wrong order:
+# This UGLY MONKEY PATCH is because the actual code is in the wrong order:
 
 def myInitWeb(self):
     self._reps = 0

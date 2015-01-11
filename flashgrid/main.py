@@ -7,6 +7,7 @@ from aqt.qt import *
 #from aqt.utils import mungeQA, getBase, openLink, tooltip, askUserDialog
 from aqt.webview import AnkiWebView
 from aqt.reviewer import Reviewer
+from anki.sound import playFromText, clearAudioQueue
 from grid import Ui_gridDialog
    # TODO in grid.ui: CHANGES TO REDO IN DESIGNER: use of AnkiWebView; removal of Ok/Cancel buttons
    # OR, eliminate grid.py altogether (it's just one UI element anyway)
@@ -14,7 +15,7 @@ from grid import Ui_gridDialog
 
 class GridDlg(QDialog):
 
-    _appLabel="FlashGrid v0.10"
+    _appLabel="FlashGrid v0.2"
     _gridSize = 2
     
     @staticmethod
@@ -22,11 +23,11 @@ class GridDlg(QDialog):
         GridDlg._gridSize = 3 if (GridDlg._gridSize == 2) else 2
         showInfo("Ok. Toggled to %s x %s." % (GridDlg._gridSize, GridDlg._gridSize))  # msgbox / messagebox
 
-    def myLinkHandler(self, url):
-        ''' Method for AnkiWebView. Currently being patched into the view object in our dialog.
-        TODO: Consider subclassing instead.
+    def _myLinkHandler(self, url):
+        ''' Handles when the user clicks on a table cell or the Replay Audio link
         '''
-        if url.lower().startswith("closePopup".lower()):
+        url = url.lower()
+        if "closepopup" in url:
             ret = 0
             try:
                 label, val = url.split(":")
@@ -36,6 +37,22 @@ class GridDlg(QDialog):
             except ValueError:
                 pass # i.e. ret = 0
             self.closeMaybe(ret)
+        
+        if "replayaudio" in url:
+            mw.reviewer.replayAudio()
+            
+    def _myKeyHandler(self, evt):
+        #key = evt.key()
+        key = evt.text().lower()
+        if key == u'r':
+            mw.reviewer.replayAudio()
+            return
+
+        ua = unicode(string.lowercase, errors='ignore')
+        if key and key in ua:
+            number = GridDlg.toNumber(key)
+            self.closeMaybe(number)
+                
 
     def closeMaybe(self, n):
         if (n == 0 or n == self.correct):  # 0 = cancel
@@ -49,9 +66,11 @@ class GridDlg(QDialog):
         self.ui.setupUi(self)
 
         v = self.ui.gridView
-        #v._linkHandler = self.myLinkHandler
-        v.setLinkHandler(self.myLinkHandler)
-        #was v.setLinkHandler(self._linkHandler)
+        v.setLinkHandler(self._myLinkHandler)
+        v.setKeyHandler(self._myKeyHandler)
+        
+        # WARNING: the following could interfere with other addons, or future versions of Anki
+        #reviewer.web.setKeyHandler(self._myKeyHandler) # just for convenience, when the grid isn't showing
         
         self.correct = random.randint(1, GridDlg._gridSize**2)  # e.g. a number from 1 to 4 (inclusive)
 
@@ -73,14 +92,12 @@ class GridDlg(QDialog):
         tmp = ord(c) - ord('a') + 1   # our numbering scheme is not zero-based
         return tmp
     
-    # TODO: provide KeyHandler that uses toNumber() to convert a keystroke into a call to closeMaybe()
-    
     def showAnswerGrid(self, card, rev):
         dialog = self
         
         view = dialog.ui.gridView
     
-        cardFrontHtml = self.renderOneQA(rev, card, "question")
+        cardFrontHtml = renderOneQA(rev, card, "question")
         tmp = json.dumps(cardFrontHtml)
         tmp = '_append("%s", %s);' % ('insertFrontHere', tmp)
         view.page().mainFrame().evaluateJavaScript(tmp)
@@ -93,7 +110,7 @@ class GridDlg(QDialog):
 not found
 '''
         cards = [dummy for i in range(size)] # i.e. 4 or 9 dummies
-        cards[dialog.correct-1] = self.renderOneQA(rev, card, "answer")  # put in the real answer 
+        cards[dialog.correct-1] = renderOneQA(rev, card, "answer")  # put in the real answer 
     
         deckName = mw.col.decks.current()['name']
         search = '-is:suspended deck:"%s"' % deckName
@@ -104,31 +121,32 @@ not found
         i = 0
         for c in cardsFound:  # at most; but usually we'll quit after gridw*gridh
             id = i+1  # these are offset by one since grid's id-numbering is 1-based but array is 0-based
+            if (id > size):
+                break
             if (c == card.id) or (id == dialog.correct):  # don't use current card nor steal its cell
                 i += 1
                 continue
             else:
                 cellCard = mw.col.getCard(c) # mw.col.findCards("cid:%s" % c)
                 if not cellCard or (cellCard.template() != card.template()):
+                    # do NOT increment i
                     continue  # something went wrong finding that card (throw exception?)
     
-            cards[i] = self.renderOneQA(rev, cellCard, "answer")
+            cards[i] = renderOneQA(rev, cellCard, "answer")
     
-            if (id >= size):
-                break
             i += 1
         
         for i in range(size):
             txt = cards[i]
             id = i+1
-            cards[i] = GridDlg.gridHtmlCell(id, txt)
+            cards[i] = gridHtmlCell(id, txt)
             if ((id % gridw == 0) and (id < size)):  # use modulus to identify/create end of row
-                cards[i] += GridDlg.gridHtmlBetweenRows()
+                cards[i] += gridHtmlBetweenRows()
 
         '''
         r = range(gridw, gridw*gridh, gridw)
         for i in r:
-            cards[i-1] += GridDlg.gridHtmlBetweenRows()
+            cards[i-1] += gridHtmlBetweenRows()
         '''
         
         toInsert = '\n'.join(cards)
@@ -152,133 +170,125 @@ not found
         f.write(h)
         f.close()
         
+def renderOneQA(rev, card, qa = "answer"):
+    ''' Creates HTML to plug directly in as the specified <TD> table cell.
+    '''
+
+    origState = rev.state
+    rev.state = qa  # necessary to get correct results from _mungeQA()
     
-    def renderOneQA(self, rev, card, qa = "answer"):
-        ''' Creates HTML to plug directly in as the specified <TD> table cell.
+    c = card
+    
+    if qa == "answer":
+        html = c.a()
+
+        #if there's a way to reach in and remove CardFront
+        #before it is rendered to html, that would be better.
         '''
+        afmt = c.template()['afmt']
+        if GridDlg.needRemoveFront(afmt):
+            af = removeFront(afmt)
+            # temporarily swap afmt and af
+        '''
+    else:
+        html = c.q()
     
-        origState = rev.state
-        rev.state = qa  # necessary to get correct results from _mungeQA()
-        
-        c = card
-        
-        if qa == "answer":
-            html = c.a()
+    # play audio?  # NO, not in the grid (except maybe on hover?)
+    #if rev.autoplay(c):
+    #    playFromText(a)
+    # render and update bottom
+    
+    html = rev._mungeQA(html)
+    html = removeFront(html)
+    a = html
+    klass = "card card%d" % (c.ord+1)
+    #tmp = "_updateA(%s, true, %s);" % (json.dumps(a), klass)
 
-            #if there's a way to reach in and remove CardFront
-            #before it is rendered to html, that would be better.
-            '''
-            afmt = c.template()['afmt']
-            if GridDlg.needRemoveFront(afmt):
-                af = GridDlg.removeFront(afmt)
-                # temporarily swap afmt and af
-            '''
-        else:
-            html = c.q()
-        
-        # play audio?  # NO, not in the grid (except maybe on hover?)
-        #if rev.autoplay(c):
-        #    playFromText(a)
-        # render and update bottom
-        
-        html = rev._mungeQA(html)
-        html = GridDlg.removeFront(html)
-        a = html
-        klass = "card card%d" % (c.ord+1)
-        #tmp = "_updateA(%s, true, %s);" % (json.dumps(a), klass)
-    
-        # DON'T show answer / ease buttons
-    
-        rev.state = origState
-    
-        html = a
-        # html = json.dumps(a) # NOT until we've added our html
-    
-        # user hook
-        #runHook('showAnswer')  # NO, we assume other addons' behavior here is unwanted
-    
-        tmp = '<div class="%s">%s</div>' % (klass, html)
-        return tmp
+    # DON'T show answer / ease buttons
 
-        #Would using frames (iframes) allow us to zoom out instead of trying to resize images and fonts?        
-        #frames = v.page().mainFrame().childFrames()
-        #for frame in frames:
-        #    frame.setHtml(h1)
-        #frames[0].setHtml(h2)
-        #v.setHtml(h2)
-        
+    rev.state = origState
 
-    '''    
-    @staticmethod
-    def needRemoveFront(cardString):
-        return ("{{FrontSide}}" in cardString) or ("<hr" in cardString) 
-    '''
+    html = a
+    # html = json.dumps(a) # NOT until we've added our html
 
-    @staticmethod
-    def removeFront(cardString):
-        s2 = s = cardString
-        #pat = '(?s){{FrontSide}}.*<hr.*?>'
-        #s2 = re.sub(pat, '', s)
-        #pat = '(?s)({{FrontSide}}|<hr.*?>)'  # use this if we get the monkey patch working
-        pat = '(?s)</style>.*?<hr.*?>'  # chop off anything preceding the first <hr> if one exists 
-        s3 = re.sub(pat, '</style>', s2)
-        return s3
+    # user hook
+    #runHook('showAnswer')  # NO, we assume other addons' behavior here is unwanted
 
-    '''    
-    @staticmethod
-    def extractStyle(html):
-        s, h = '', html
-        import re
-        pat = "(?s)<style>.*?</style>"
-        match = re.search(pat, html)
-        if match:
-            s = match.group(0)
-            html = re.sub(pat, '', html)
-        return s, h
-    '''
+    tmp = '<div class="%s">%s</div>' % (klass, html)
+    return tmp
+
+    #Would using frames (iframes) allow us to zoom out instead of trying to resize images and fonts?        
+    #frames = v.page().mainFrame().childFrames()
+    #for frame in frames:
+    #    frame.setHtml(h1)
+    #frames[0].setHtml(h2)
+    #v.setHtml(h2)
+    
+
+'''    
+def needRemoveFront(cardString):
+    return ("{{FrontSide}}" in cardString) or ("<hr" in cardString) 
+'''
+
+def removeFront(cardString):
+    s2 = s = cardString
+    #pat = '(?s){{FrontSide}}.*<hr.*?>'
+    #s2 = re.sub(pat, '', s)
+    #pat = '(?s)({{FrontSide}}|<hr.*?>)'  # use this if we get the monkey patch working
+    pat = '(?s)</style>.*?<hr.*?>'  # chop off anything preceding the first <hr> if one exists 
+    s3 = re.sub(pat, '</style>', s2)
+    return s3
+
+'''    
+def extractStyle(html):
+    s, h = '', html
+    import re
+    pat = "(?s)<style>.*?</style>"
+    match = re.search(pat, html)
+    if match:
+        s = match.group(0)
+        html = re.sub(pat, '', html)
+    return s, h
+'''
    
-    @staticmethod
-    def gridHtmlCell(cellId, content, linkLabel=None):
-        ''' To get no label, you must explicitly pass in an empty string.
-        '''
-        if (linkLabel != ''):
-            cellLetter = GridDlg.toLetter(cellId)
-            linkLabel = '%s.' % cellLetter
-        else:
-            linkLabel = ''
-        
-        #cellLetter = GridDlg.toLetter(cellId)
-        
-        # alternative:
-        tmp = '''
+def gridHtmlCell(cellId, content, linkLabel=None):
+    ''' To get no label, you must explicitly pass in an empty string.
+    '''
+    if (linkLabel != ''):
+        cellLetter = GridDlg.toLetter(cellId)
+        linkLabel = '%s.' % cellLetter
+    else:
+        linkLabel = ''
+    
+    #cellLetter = GridDlg.toLetter(cellId)
+    
+    # alternative:
+    tmp = '''
 <td id="%s" onclick="document.location='closePopup:%s'" class="card" style="cursor:pointer">
   <p><a href="closePopup:%s">
   %s
 %s</a></p>
 </td>
 ''' % (cellId, cellId, cellId, linkLabel, content)
-        tmp = '''
+    tmp = '''
 <td id="%s" class="card" style="cursor:pointer">
   <a href="closePopup:%s">
   %s <br/>
 %s</a>
 </td>
 ''' % (cellId, cellId, linkLabel, content)
-        return tmp
+    return tmp
 
-
-    @staticmethod
-    def gridHtmlBetweenRows(): 
-        return '''
+def gridHtmlBetweenRows(): 
+    return '''
 </tr><tr>
 '''
         
         
-    @staticmethod
-    def gridHtml(style='', head=''):
+def gridHtml(style='', head=''):
 
-        # alternative (snippet):
-        '''
+    # alternative (snippet):
+    '''
 /* unique to FlashGrid */
 table {width:100%%; height:100%%; }
 td{background:gray;border:1px solid #000}
@@ -287,7 +297,9 @@ td a:hover{background:blue;color:#fff}
 /* need to add styling to remove blue underlining from a tags */
 '''
     
-        mainHtml = '''
+    replayAudio = '<a href="replayAudio">Replay Audio</a>'
+    
+    mainHtml = '''
 <!doctype html>
 <html>
 
@@ -304,7 +316,7 @@ table {width:100%%; }
 .cardFront {width:30%%;}
 td.card{background:gray;border:1px solid #000;width:50%%;}
 td a{display:block; text-decoration:none}
-td:hover{background:blue;color:#fff}
+td:hover{background:#CCCCCC;color:#FFFFFF}
 </style>
 <script>
 function _append (id, t) {
@@ -324,11 +336,12 @@ function _append (id, t) {
   <td><div id="insertGridHere"></div>  <!-- inner table, will be NxN based on gridSize setting -->
 </td></tr></tbody></table> 
 <p>%s</p>
+<p>%s</p>
 </body>
 
 </html>
-''' % (style, head, GridDlg._appLabel)
-        return mainHtml
+''' % (style, head, replayAudio, GridDlg._appLabel)
+    return mainHtml
 
 GridDlg.gridOn = True
 
