@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# CHANGES TO REDO IN DESIGNER: use of AnkiWebView; removal of Ok/Cancel buttons
-
 # Form implementation generated from reading ui file 'grid.ui'
 #
 # Created: Thu Jan 01 23:06:04 2015
