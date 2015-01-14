@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# CHANGES TO REDO IN DESIGNER: use of AnkiWebView; removal of Ok/Cancel buttons
+# This file was originally generated from a .ui file created in Qt Designer with this command:
+#   C:\Python27\Lib\site-packages\PyQt4\uic\pyuic.py grid.ui > grid.py
+# but it was then manually tweaked.
+
+# CHANGES TO REDO IN DESIGNER (if you want to use Designer to generate grid.py):
+# - use of AnkiWebView
+# - removal of Ok/Cancel buttons
+
 
 # Form implementation generated from reading ui file 'grid.ui'
 #
@@ -35,14 +42,14 @@ class Ui_gridDialog(object):
         self.verticalLayout = QtGui.QVBoxLayout(gridDialog)
         self.verticalLayout.setObjectName(_fromUtf8("verticalLayout"))
         import aqt.webview
-        self.gridView = aqt.webview.AnkiWebView(gridDialog)
+        self.gridView = aqt.webview.AnkiWebView(gridDialog)  #MANUAL EDIT
         #self.gridView = QtWebKit.QWebView(gridDialog)
         self.gridView.setUrl(QtCore.QUrl(_fromUtf8("about:blank")))
         self.gridView.setObjectName(_fromUtf8("gridView"))
         self.verticalLayout.addWidget(self.gridView)
         self.buttonBox = QtGui.QDialogButtonBox(gridDialog)
         self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        #self.buttonBox.setStandardButtons(QtGui.QDialogButtonBox.Cancel|QtGui.QDialogButtonBox.Ok)
+        #self.buttonBox.setStandardButtons(QtGui.QDialogButtonBox.Cancel|QtGui.QDialogButtonBox.Ok)    #MANUALLY DISABLED
         self.buttonBox.setObjectName(_fromUtf8("buttonBox"))
         self.verticalLayout.addWidget(self.buttonBox)
 
