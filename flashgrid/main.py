@@ -309,14 +309,17 @@ td a:hover{background:blue;color:#fff}
 button {
 font-weight: normal;
 }
+
 %s
+
 /* unique to FlashGrid */
 img { max-width: 90px; max-height: 90px; }
 table {width:100%%; }
 .cardFront {width:30%%;}
-td.card{background:gray;border:1px solid #000;width:50%%;}
+td{text-align:left}
+td.card{background:white;border:0px solid #000;width:50%%;vertical-align:top;}
 td a{display:block; text-decoration:none}
-td:hover{background:#CCCCCC;color:#FFFFFF}
+/*td.card:hover{background:#CCCCCC;color:#FFFFFF}*/
 </style>
 <script>
 function _append (id, t) {
@@ -331,12 +334,19 @@ function _append (id, t) {
 <p><a href="closePopup">close</a></p> -->
 
 <table class="card"><tbody><tr>  <!-- outer table, 1x2 -->
-  <td class="cardFront"><div id="insertFrontHere"></div></td><td width="10px">&nbsp;</td>  <!-- show front of main card on the left -->
-  <!-- TODO: plus a Replay Audio button --> 
-  <td><div id="insertGridHere"></div>  <!-- inner table, will be NxN based on gridSize setting -->
+
+  <!-- show front of main card on the left -->
+  <td class="cardFront"><div id="insertFrontHere"></div>
+    <p>%s</p>
+    <p>%s</p>
+  </td>
+
+  <!-- spacer -->
+  <td width="10px">&nbsp;</td>
+
+  <!-- inner table, will be NxN based on gridSize setting -->
+  <td><div id="insertGridHere"></div>
 </td></tr></tbody></table> 
-<p>%s</p>
-<p>%s</p>
 </body>
 
 </html>
