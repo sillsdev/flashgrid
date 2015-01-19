@@ -15,7 +15,7 @@ from grid import Ui_gridDialog
 
 class GridDlg(QDialog):
 
-    _appLabel="FlashGrid v0.2"
+    _appLabel="FlashGrid v0.11"
     _gridSize = 2
     
     @staticmethod
@@ -99,7 +99,7 @@ class GridDlg(QDialog):
     
         cardFrontHtml = renderOneQA(rev, card, "question")
         tmp = json.dumps(cardFrontHtml)
-        tmp = '_append("%s", %s);' % ('insertFrontHere', tmp)
+        tmp = '_append("%s", %s);' % ('fgCardFront', tmp)
         view.page().mainFrame().evaluateJavaScript(tmp)
        
         gridw = GridDlg._gridSize
@@ -136,28 +136,23 @@ not found
     
             i += 1
         
+        klass = "card card%d" % (card.ord+1)
+
         for i in range(size):
             txt = cards[i]
             id = i+1
-            cards[i] = gridHtmlCell(id, txt)
+            cards[i] = '<td class="%s">%s</td>' % (klass, gridHtmlCell(id, txt))
             if ((id % gridw == 0) and (id < size)):  # use modulus to identify/create end of row
                 cards[i] += gridHtmlBetweenRows()
 
-        '''
-        r = range(gridw, gridw*gridh, gridw)
-        for i in r:
-            cards[i-1] += gridHtmlBetweenRows()
-        '''
-        
         toInsert = '\n'.join(cards)
     
-        klass = "card card%d" % (card.ord+1)
         toInsert = '''<table class="%s"><tbody><tr>
         %s
         </tr></tbody></table>''' % (klass, toInsert) 
 
         tmp = json.dumps(toInsert)
-        tmp = '_append("%s", %s);' % ('insertGridHere', tmp)
+        tmp = '_append("%s", %s);' % ('fgCardGridArea', tmp)
     
         #self.web.eval(tmp)  # NO, instead of the Reviewer doing this, have the popup view do it
         view.page().mainFrame().evaluateJavaScript(tmp)
@@ -166,12 +161,12 @@ not found
        
         h = view.page().mainFrame().toHtml()
         h = h.encode('utf-8')
-        f = open('gridtemp.tmp.html', 'w')
+        f = open('gridtemp.tmp.html', 'w')  # this file is very helpful when debugging, because you can open it in a browser, experiment with its CSS, etc. 
         f.write(h)
         f.close()
         
 def renderOneQA(rev, card, qa = "answer"):
-    ''' Creates HTML to plug directly in as the specified <TD> table cell.
+    ''' Creates HTML to plug into the specified grid cell.
     '''
 
     origState = rev.state
@@ -180,7 +175,7 @@ def renderOneQA(rev, card, qa = "answer"):
     c = card
     
     if qa == "answer":
-        html = c.a()
+        html = c.a()  #BACK
 
         #if there's a way to reach in and remove CardFront
         #before it is rendered to html, that would be better.
@@ -191,12 +186,9 @@ def renderOneQA(rev, card, qa = "answer"):
             # temporarily swap afmt and af
         '''
     else:
-        html = c.q()
+        html = c.q()  #FRONT
     
-    # play audio?  # NO, not in the grid (except maybe on hover?)
-    #if rev.autoplay(c):
-    #    playFromText(a)
-    # render and update bottom
+    # play audio?  # NO, not in the grid
     
     html = rev._mungeQA(html)
     html = removeFront(html)
@@ -214,7 +206,9 @@ def renderOneQA(rev, card, qa = "answer"):
     # user hook
     #runHook('showAnswer')  # NO, we assume other addons' behavior here is unwanted
 
-    tmp = '<div class="%s">%s</div>' % (klass, html)
+    return html
+
+    tmp = '<div class="%s">%s</div>' % (klass, html)  # problem: it's hard to stretch this div vertically to fill its containing td
     return tmp
 
     #Would using frames (iframes) allow us to zoom out instead of trying to resize images and fonts?        
@@ -235,7 +229,7 @@ def removeFront(cardString):
     #pat = '(?s){{FrontSide}}.*<hr.*?>'
     #s2 = re.sub(pat, '', s)
     #pat = '(?s)({{FrontSide}}|<hr.*?>)'  # use this if we get the monkey patch working
-    pat = '(?s)</style>.*?<hr.*?>'  # chop off anything preceding the first <hr> if one exists 
+    pat = '(?s)</style>.*?<hr.*?>'  # for now, just chop off anything preceding the first <hr>, if one exists 
     s3 = re.sub(pat, '</style>', s2)
     return s3
 
@@ -262,20 +256,18 @@ def gridHtmlCell(cellId, content, linkLabel=None):
     
     #cellLetter = GridDlg.toLetter(cellId)
     
-    # alternative:
+    tmp = '''<a href="closePopup:%s">
+  %s <br/>
+%s</a>
+''' % (cellId, linkLabel, content)
+    return tmp
+    
     tmp = '''
-<td id="%s" onclick="document.location='closePopup:%s'" class="card" style="cursor:pointer">
-  <p><a href="closePopup:%s">
-  %s
-%s</a></p>
-</td>
-''' % (cellId, cellId, cellId, linkLabel, content)
-    tmp = '''
-<td id="%s" class="card" style="cursor:pointer">
+<div id="%s" class="card" style="cursor:pointer">
   <a href="closePopup:%s">
   %s <br/>
 %s</a>
-</td>
+</div>
 ''' % (cellId, cellId, linkLabel, content)
     return tmp
 
@@ -285,17 +277,7 @@ def gridHtmlBetweenRows():
 '''
         
         
-def gridHtml(style='', head=''):
-
-    # alternative (snippet):
-    '''
-/* unique to FlashGrid */
-table {width:100%%; height:100%%; }
-td{background:gray;border:1px solid #000}
-td a{display:block}
-td a:hover{background:blue;color:#fff}
-/* need to add styling to remove blue underlining from a tags */
-'''
+def gridHtml(style='', head='', klass='card', height=580):
     
     replayAudio = '<a href="replayAudio">Replay Audio</a>'
     
@@ -313,13 +295,17 @@ font-weight: normal;
 %s
 
 /* unique to FlashGrid */
+html, body, table { height:%spx; table-layout:fixed}  /* 100%% height doesn't appear to work; 'fixed' gives equal column widths */
 img { max-width: 90px; max-height: 90px; }
-table {width:100%%; }
-.cardFront {width:30%%;}
-td{text-align:left}
-td.card{background:white;border:0px solid #000;width:50%%;vertical-align:top;}
-td a{display:block; text-decoration:none}
-/*td.card:hover{background:#CCCCCC;color:#FFFFFF}*/
+#fgDialog {position:absolute; width:100%%; height:100%%}
+  #fgFrontArea {position:absolute; width:20%%; height 100%%;}
+    #fgCardFront  {width:100%%; }
+  #fgCardGridArea {position:absolute; right:0; width:77%%; height 100%%;}
+    table {width:100%%;}
+      td {text-align:left; border:2px solid white;}
+      table.card td {width:50%%;vertical-align:top; cursor:pointer;}
+      table.card td a {display:block; text-decoration:none; height:100%%;}
+      table.card td:hover {background:#CCCCCC;color:#CCCCFF} /* */
 </style>
 <script>
 function _append (id, t) {
@@ -333,24 +319,26 @@ function _append (id, t) {
 <!-- <div id=qa></div>
 <p><a href="closePopup">close</a></p> -->
 
-<table class="card"><tbody><tr>  <!-- outer table, 1x2 -->
+<div id="fgDialog">  <!-- outer 'table', 1x2 -->
 
   <!-- show front of main card on the left -->
-  <td class="cardFront"><div id="insertFrontHere"></div>
+  <div id="fgFrontArea">
+    <div id="fgCardFront" class="%s"></div>
     <p>%s</p>
     <p>%s</p>
-  </td>
-
-  <!-- spacer -->
-  <td width="10px">&nbsp;</td>
+  </div>
 
   <!-- inner table, will be NxN based on gridSize setting -->
-  <td><div id="insertGridHere"></div>
-</td></tr></tbody></table> 
+
+
+  <div id="fgCardGridArea"></div>
+
+
+</div> 
 </body>
 
 </html>
-''' % (style, head, replayAudio, GridDlg._appLabel)
+''' % (style, height, head, klass, replayAudio, GridDlg._appLabel)
     return mainHtml
 
 GridDlg.gridOn = True

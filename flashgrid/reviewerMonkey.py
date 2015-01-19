@@ -43,7 +43,8 @@ def onShowQuestion():
     #see also: Reviewer._initWeb()
     base = getBase(rev.mw.col)  # this is necessary, or the images won't display; however, it complicates links  
 
-    html = gridHtml(rev._css, base) #... we insert this once for the whole grid
+    klass = "card card%d" % (rev.card.ord+1)
+    html = gridHtml(rev._css, base, klass) #... we insert this once for the whole grid
 
     callback = lambda x: w.showAnswerGrid(rev.card, rev)
 
