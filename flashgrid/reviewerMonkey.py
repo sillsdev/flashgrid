@@ -12,25 +12,41 @@ from aqt.webview import AnkiWebView
 #from grid import Ui_gridDialog
 from main import GridDlg, gridHtml
 
-def onShowQuestion():
+
+# This workaround doesn't work all that well yet. It's here because Anki triggers showQuestion too often. 
+Reviewer._cardJustShown = None 
+def staleCard(card):
+    #global _cardJustShown
+    sh = Reviewer._cardJustShown
+    if sh and sh == card.id:
+        # Bail. They probably just opened and closed a dialog box.
+        #print 'bail'
+        return True
+    #tmp = 'showing %s %s ...' % ( sh, card.note().values() )
+    #print tmp  #showInfo(tmp)  #Anki messagebox / msgbox
+    Reviewer._cardJustShown = card.id
+    return False
+    
+
+# Returns True if we should advance to the Answer (because user clicked the correct answer cell)
+def doGrid():
+    
+    if not GridDlg.gridOn: return False
+
     rev = mw.reviewer
     
-    #origShowQuestion(rev) # we're wrapping this, so we'll still run it
-    
-    if not GridDlg.gridOn: return
-    
-    #showInfo(rev.state)
-    #return
-
     if not rev.state == "question":  # did the user just click to get a new question?
-        # Yes  
-        return
-    # Probably not. # TODO: find something that blocks this when in "question" mode (e.g. on closing the Fields dialog) 
+        return False # No
+    # Probably Yes
+    
+    if staleCard(rev.card):
+        return False # No, actually. We already just showed this card
+
+    print 'show grid'
 
     #import time
     #time.sleep(2)
 
-    #showInfo("pretend this is a grid")
     w = GridDlg(rev)
     screen = QDesktopWidget().screenGeometry()
     w.setGeometry(0, 0, screen.width(), screen.height())
@@ -52,23 +68,37 @@ def onShowQuestion():
 
     v.show()
     w.show()
-        
-    #showInfo("The answer is %s" % w.correct)
 
     if w.exec_():
-        # if it returns 1, show the next flashcard
-        rev._showAnswer() # WARNING: this could eventually cause a stack overflow, I think, but there's currently no hook for asking Anki to do this for us. -Jon  
+        # show the next flashcard
+        return True
+    return False
 
+# Of _showAnswer() and _showAnswerHack(), which is better?
 
-#Originally, we used a monkey patch here, but now we use the standard hook Anki provides. 
+# A. Using the standard hook Anki provides.
+def onShowQuestion():
+    rev = mw.reviewer
+    if doGrid():
+        rev._showAnswerHack() # WARNING: I suspect that calling this repeatedly could eventually cause a stack overflow, but there's currently no hook for asking Anki to do this for us. -Jon
 
 from anki.hooks import addHook
 addHook('showQuestion', onShowQuestion)
 
+# B. Using a monkey patch.
+'''
+Reviewer._origShowQuestion = Reviewer._showQuestion
+def myShowQuestion(self):
+    Reviewer._origShowQuestion(self)
+    rev = mw.reviewer
+    if doGrid():
+        rev._showAnswerHack()
+Reviewer._showQuestion = myShowQuestion
+'''
 
-
-# This UGLY MONKEY PATCH is because the actual code is in the wrong order:
-
+# This MONKEY PATCH fixes a bug where the Anki code is in the wrong order
+# BUG: first card does not auto-advance when the user clicks the correct grid cell. Subsequent cards do.
+'''
 def myInitWeb(self):
     self._reps = 0
     self._bottomReady = False
@@ -84,5 +114,5 @@ def myInitWeb(self):
         loadCB=lambda x: self._showQuestion(),
         head=base)
 
-Reviewer._initWeb = myInitWeb
-
+Reviewer._initWeb = myInitWeb  # apply the patch
+'''
