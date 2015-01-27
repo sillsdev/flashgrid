@@ -12,16 +12,19 @@ from grid import Ui_gridDialog
    # TODO in grid.ui: CHANGES TO REDO IN DESIGNER: use of AnkiWebView; removal of Ok/Cancel buttons
    # OR, eliminate grid.py altogether (it's just one UI element anyway)
 
+def msgBox(m):
+    text = '{}\n\n- {}'.format(m, GridDlg._appLabel)
+    showInfo(text)
 
 class GridDlg(QDialog):
 
-    _appLabel="FlashGrid v0.11"
+    _appLabel="FlashGrid v0.12"
     _gridSize = 2
     
     @staticmethod
     def toggleGridSize():
         GridDlg._gridSize = 3 if (GridDlg._gridSize == 2) else 2
-        showInfo("Ok. Toggled to %s x %s." % (GridDlg._gridSize, GridDlg._gridSize))  # msgbox / messagebox
+        msgBox("Ok. Toggled to %s x %s." % (GridDlg._gridSize, GridDlg._gridSize))  # msgbox / messagebox
 
     def _myLinkHandler(self, url):
         ''' Handles when the user clicks on a table cell or the Replay Audio link
@@ -346,7 +349,7 @@ GridDlg.gridOn = True
 def onGridOffOnClicked():
     GridDlg.gridOn = not GridDlg.gridOn
     tmp = "On" if GridDlg.gridOn else "Off"
-    showInfo("FlashGrids are now %s" % (tmp))  # msgbox / messagebox
+    msgBox("FlashGrids are now %s" % (tmp))  # msgbox / messagebox
 
 def onSizeClicked():
     from aqt.reviewer import Reviewer

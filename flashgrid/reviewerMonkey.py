@@ -12,7 +12,6 @@ from aqt.webview import AnkiWebView
 #from grid import Ui_gridDialog
 from main import GridDlg, gridHtml
 
-
 # This workaround doesn't work all that well yet. It's here because Anki triggers showQuestion too often. 
 Reviewer._cardJustShown = None 
 def staleCard(card):
