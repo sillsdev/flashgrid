@@ -25,7 +25,9 @@ def staleCard(card):
     #print tmp  #showInfo(tmp)  #Anki messagebox / msgbox
     Reviewer._cardJustShown = card.id
     return False
-    
+
+def reset():
+    Reviewer._cardJustShown = None    
 
 # Returns True if we should advance to the Answer (because user clicked the correct answer cell)
 def doGrid():
@@ -83,6 +85,7 @@ def onShowQuestion():
 
 from anki.hooks import addHook
 addHook('showQuestion', onShowQuestion)
+addHook('reviewCleanup', reset)
 
 # B. Using a monkey patch.
 '''
