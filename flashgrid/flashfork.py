@@ -93,10 +93,14 @@ class DeckDuper(object):
 
         # copy data
         n2.fields = copy.deepcopy(note.fields)
+        n2.tags = copy.deepcopy(note.tags)
         # anything else??
         
         n2.flush(intTime()) #save
         #n2.load()
+        
+        # Copy its cards (technically shouldn't be necessary since they should auto-generate, but how else
+        # to specify a target deck? Also, we're being careful because orphaned notes are inaccessible in Anki's UI.
         
         cardCount = mw.col.addNote(n2)
         if cardCount:
@@ -104,8 +108,9 @@ class DeckDuper(object):
             cards = mw.col.db.list(q)
             for cid in cards:
                 c = mw.col.getCard(cid)
-                c.did = deckId
+                c.did = deckId  # Move card into the target deck
                 c.flush()
+                self.cardsCopied += 1
             return n2
         self.errors.add('Copy Note failed.')
         self.errorCount += 1
@@ -143,25 +148,7 @@ class DeckDuper(object):
             noteMap[key] = nid2
             self.notesCopied += 1
 
-        # copy card (technically shouldn't be necessary since they should auto-generate, but how else
-        # to specify a target deck? Also, we're being careful because orphaned notes are inaccessible in Anki's UI.
 
-        '''
-        # set the attributes that will differ from the original
-        c2 = copy.deepcopy(c)
-        c2.did = targetDeckId
-        
-        c2.nid = note2.id
-        # c2._note = note2  # or... tmp = c2.note(c2.nid, reload=True)
-        
-        # save
-        mw.col.decks.setDeck([c2.id], targetDeckId)
-        d2 = mw.col.decks.get(targetDeckId)
-        d2.save()
-        d2.flush()
-        # c2.flush()
-        self.cardsCopied += 1
-        '''
 
     def dupDeck(self, dupNoteTypes=[]):
         ''' Copies all CARDS and NOTES from this deck into a new deck.
@@ -283,7 +270,7 @@ do you want to clone the settings?
     
     # mw.reset(True) # refresh the screen so the new deck is visible
 
-    msg = 'Successfully copied %s notes. \n' % dd.notesCopied
+    msg = 'Successfully copied %s notes and %s cards (without their scheduling info). \n' % (dd.notesCopied, dd.cardsCopied)
     if dd.errorCount:
         s = list(dd.errors)
         summary = ' '.join(s)
