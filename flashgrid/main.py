@@ -280,7 +280,19 @@ def gridHtmlBetweenRows():
 '''
         
         
-def gridHtml(style='', head='', klass='card', height=580):
+def gridHtml(style='', head='', klass='card', width=800-20, height=600-40):
+    # TODO: find a way to use % rather than px in the CSS, yet still handle vertical spacing
+    
+    buffer = 20
+    maxCellW = (width / (GridDlg._gridSize + 1)) - buffer
+    maxImgW = int( maxCellW * 0.8 )  # don't use more than 80%
+    maxCellH = (height / GridDlg._gridSize) - buffer
+    maxImgH = int( maxCellH * 0.8 )
+    
+    # works for img, but not sure how to enforce the max cell dimensions
+    
+    rowHeight = int (100 / GridDlg._gridSize)  # gives 50% or 33%  
+    #height = int( height * 0.8 )  # why is this hack necessary?
     
     replayAudio = '<a href="replayAudio">Replay Audio</a>'
     
@@ -299,14 +311,15 @@ font-weight: normal;
 
 /* unique to FlashGrid */
 html, body, table { height:%spx; table-layout:fixed}  /* 100%% height doesn't appear to work; 'fixed' gives equal column widths */
-img { max-width: 90px; max-height: 90px; }
+img { max-width: %spx; max-height: %spx; }
 #fgDialog {position:absolute; width:100%%; height:100%%}
   #fgFrontArea {position:absolute; width:20%%; height 100%%;}
     #fgCardFront  {width:100%%; }
   #fgCardGridArea {position:absolute; right:0; width:77%%; height 100%%;}
     table {width:100%%;}
       td {text-align:left; border:2px solid white;}
-      table.card td {width:50%%;vertical-align:top; cursor:pointer;}
+      tr {height: %s%%;}
+      table.card td {vertical-align:top; cursor:pointer;}
       table.card td a {display:block; text-decoration:none; height:100%%;}
       table.card td:hover {background:#CCCCCC;color:#CCCCFF} /* */
 </style>
@@ -341,7 +354,7 @@ function _append (id, t) {
 </body>
 
 </html>
-''' % (style, height, head, klass, replayAudio, GridDlg._appLabel)
+''' % (style, height, maxImgW, maxImgH, rowHeight, head, klass, replayAudio, GridDlg._appLabel)
     return mainHtml
 
 GridDlg.gridOn = True
@@ -355,23 +368,6 @@ def onSizeClicked():
     from aqt.reviewer import Reviewer
     GridDlg.toggleGridSize()
 
-"""
-class StringGridOffOn(str):
-    ''' Trying to subclass string so we can pass in a dynamic object rather than
-    a static string for the menu item text. Doesn't work yet, though.
-    '''
-    def __str__(self):
-        changeTo = 'off' if GridDlg.gridOn else 'on'
-        return "FlashGrid: turn grid drilling %s" % changeTo
-        #before, after = 2, 3
-        #tmp = "Toggle grid size to %s x %s (currently %s x %s)"
-    def __repr__(self):
-        changeTo = 'off' if GridDlg.gridOn else 'on'
-        return "FlashGrid: turn grid drilling %s" % changeTo
-
-stringGen = StringGridOffOn('asdf')
-"""
-    
 stringGen = "FlashGrid toggle off/on"
 # create a new menu item in Anki
 action = QAction(stringGen, mw)

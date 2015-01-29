@@ -50,7 +50,9 @@ def doGrid():
 
     w = GridDlg(rev)
     screen = QDesktopWidget().screenGeometry()
-    w.setGeometry(0, 0, screen.width(), screen.height())
+    width = screen.width()
+    height = screen.height()
+    w.setGeometry(0, 0, width, height)
     #w.resize(800, 530)  # dialog window size: W, H
     #w.move(224,150) # TODO: automate this based on screen size, but remember (this session) if the user moves/resizes it. Simplest option is to not to destroy the object on close. 
     w.move(0, 0)
@@ -61,7 +63,8 @@ def doGrid():
     base = getBase(rev.mw.col)  # this is necessary, or the images won't display; however, it complicates links  
 
     klass = "card card%d" % (rev.card.ord+1)
-    html = gridHtml(rev._css, base, klass) #... we insert this once for the whole grid
+    buffer = 80 #for the OS taskbar and the window's title bar
+    html = gridHtml(rev._css, base, klass, width, height-buffer) #... we insert this once for the whole grid
 
     callback = lambda x: w.showAnswerGrid(rev.card, rev)
 
