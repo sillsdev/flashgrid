@@ -18,7 +18,7 @@ def msgBox(m):
 
 class GridDlg(QDialog):
 
-    _appLabel="FlashGrid v0.13"
+    _appLabel="FlashGrid v0.14"
     _gridSize = 2
     
     @staticmethod
