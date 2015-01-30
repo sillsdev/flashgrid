@@ -51,10 +51,15 @@ def doGrid():
 
     w = GridDlg(rev)
     screen = QDesktopWidget().screenGeometry()
-    width = screen.width()
-    height = screen.height()
-    w.setGeometry(0, 0, width, height)
+    width = screen.width() - 5
+    height = screen.height() - 10
+    w.setGeometry(0, 0, width, height) # may be too big, esp. if primary monitor is not the highest res
+    
+    w.show() # detect and adjust if the window got sized down by the OS (usually it's just a few pixels)
+    width = w.size().width()
+    height = w.size().height()
     #w.resize(800, 530)  # dialog window size: W, H
+    
     #w.move(224,150) # TODO: automate this based on screen size, but remember (this session) if the user moves/resizes it.
     # One option is to just not to destroy the object on close. 
     # But probably better to use Anki's utility for remembering size: utils.saveGeom()
@@ -62,10 +67,9 @@ def doGrid():
     
     v = w.ui.gridView  # we expect type of v to be: QtWebKit.QWebView or its AnkiWebView subclass
 
-    v.page().mainFrame().setScrollBarPolicy(
-            Qt.Vertical, Qt.ScrollBarAlwaysOff)  # would prefer Qt.ScrollBarAsNeeded but somehow this object thinks it's always needed
-    v.page().mainFrame().setScrollBarPolicy(
-            Qt.Horizontal, Qt.ScrollBarAlwaysOff)
+    # would prefer Qt.ScrollBarAsNeeded but somehow this object thinks it's always needed
+    v.page().mainFrame().setScrollBarPolicy(Qt.Horizontal, Qt.ScrollBarAlwaysOff)
+    v.page().mainFrame().setScrollBarPolicy(Qt.Vertical, Qt.ScrollBarAsNeeded)  
 
     #see also: Reviewer._initWeb()
     base = getBase(rev.mw.col)  # this is necessary, or the images won't display; however, it complicates links  
@@ -73,7 +77,7 @@ def doGrid():
     klass = "card card%d" % (rev.card.ord+1)
     width = int(0.96 * width)
     height = int(0.96 * height)
-    buffer = 60 #for the OS taskbar and the window's title bar
+    buffer = 60 # e.g. for the window's title bar, and a bottom 'margin'
     html = gridHtml(rev._css, base, klass, width, height - buffer) #... we insert this once for the whole grid
 
     callback = lambda x: w.showAnswerGrid(rev.card, rev)
@@ -81,7 +85,7 @@ def doGrid():
     v.setHtml(html, callback)  # pass in the 'empty' container, plus the function that'll fill it in
 
     v.show()
-    w.show()
+    w.show() 
 
     if w.exec_():
         # show the next flashcard

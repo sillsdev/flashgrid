@@ -315,6 +315,7 @@ img { max-width: %spx; max-height: %spx; }
 #fgDialog {position:absolute; width:92%%; height:86%%}
   #fgFrontArea {position:absolute; width:20%%; height 100%%;}
     #fgCardFront  {width:100%%; }
+    #typeans { width: 80%% }
   #fgCardGridArea {position:absolute; right:0; width:77%%; height 100%%;}
     table {width:100%%;}
       td {text-align:left; border:2px solid white;}
