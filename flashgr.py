@@ -2,8 +2,6 @@
 Anki addon that lets you drill using a grid of multiple cards.
 """
 
-from flashgrid import reviewerMonkey
-
-#from anki import reviewerMonkey #, main
-
+from flashgrid import reviewerMonkey  # which will in turn import main
+from flashgrid import flashfork
 
