@@ -10,6 +10,7 @@ from aqt.utils import mungeQA, getBase, openLink, tooltip, askUserDialog
 from anki.utils import json
 from aqt.webview import AnkiWebView
 #from grid import Ui_gridDialog
+import main
 from main import GridDlg, gridHtml
 
 # This workaround doesn't work all that well yet. It's here because Anki triggers showQuestion too often. 
@@ -54,17 +55,26 @@ def doGrid():
     height = screen.height()
     w.setGeometry(0, 0, width, height)
     #w.resize(800, 530)  # dialog window size: W, H
-    #w.move(224,150) # TODO: automate this based on screen size, but remember (this session) if the user moves/resizes it. Simplest option is to not to destroy the object on close. 
+    #w.move(224,150) # TODO: automate this based on screen size, but remember (this session) if the user moves/resizes it.
+    # One option is to just not to destroy the object on close. 
+    # But probably better to use Anki's utility for remembering size: utils.saveGeom()
     w.move(0, 0)
     
-    v = w.ui.gridView  # type of v: QtWebKit.QWebView or its AnkiWebView subclass
+    v = w.ui.gridView  # we expect type of v to be: QtWebKit.QWebView or its AnkiWebView subclass
+
+    v.page().mainFrame().setScrollBarPolicy(
+            Qt.Vertical, Qt.ScrollBarAlwaysOff)  # would prefer Qt.ScrollBarAsNeeded but somehow this object thinks it's always needed
+    v.page().mainFrame().setScrollBarPolicy(
+            Qt.Horizontal, Qt.ScrollBarAlwaysOff)
 
     #see also: Reviewer._initWeb()
     base = getBase(rev.mw.col)  # this is necessary, or the images won't display; however, it complicates links  
 
     klass = "card card%d" % (rev.card.ord+1)
-    buffer = 80 #for the OS taskbar and the window's title bar
-    html = gridHtml(rev._css, base, klass, width, height-buffer) #... we insert this once for the whole grid
+    width = int(0.96 * width)
+    height = int(0.96 * height)
+    buffer = 60 #for the OS taskbar and the window's title bar
+    html = gridHtml(rev._css, base, klass, width, height - buffer) #... we insert this once for the whole grid
 
     callback = lambda x: w.showAnswerGrid(rev.card, rev)
 

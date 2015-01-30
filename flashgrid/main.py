@@ -285,14 +285,14 @@ def gridHtml(style='', head='', klass='card', width=800-20, height=600-40):
     
     buffer = 20
     maxCellW = (width / (GridDlg._gridSize + 1)) - buffer
-    maxImgW = int( maxCellW * 0.8 )  # don't use more than 80%
+    maxImgW = int( maxCellW * 0.8 )  # image shouldn't use more than 80% of a cell's width
     maxCellH = (height / GridDlg._gridSize) - buffer
-    maxImgH = int( maxCellH * 0.8 )
+    maxImgH = int( maxCellH * 0.7 )
     
-    # works for img, but not sure how to enforce the max cell dimensions
+    # works for img, but not sure how to use maxImgH to enforce the max cell height
     
-    rowHeight = int (100 / GridDlg._gridSize)  # gives 50% or 33%  
-    #height = int( height * 0.8 )  # why is this hack necessary?
+    rowHeight = int (100 / GridDlg._gridSize)  # gives a pct: 50% or 33%  
+    
     
     replayAudio = '<a href="replayAudio">Replay Audio</a>'
     
@@ -310,9 +310,9 @@ font-weight: normal;
 %s
 
 /* unique to FlashGrid */
-html, body, table { height:%spx; table-layout:fixed}  /* 100%% height doesn't appear to work; 'fixed' gives equal column widths */
+html, body, table { height:%spx; max-height:%spx; table-layout:fixed}  /* 100%% height doesn't appear to work; 'fixed' gives equal column widths */
 img { max-width: %spx; max-height: %spx; }
-#fgDialog {position:absolute; width:100%%; height:100%%}
+#fgDialog {position:absolute; width:92%%; height:86%%}
   #fgFrontArea {position:absolute; width:20%%; height 100%%;}
     #fgCardFront  {width:100%%; }
   #fgCardGridArea {position:absolute; right:0; width:77%%; height 100%%;}
@@ -354,7 +354,7 @@ function _append (id, t) {
 </body>
 
 </html>
-''' % (style, height, maxImgW, maxImgH, rowHeight, head, klass, replayAudio, GridDlg._appLabel)
+''' % (style, height, height, maxImgW, maxImgH, rowHeight, head, klass, replayAudio, GridDlg._appLabel)
     return mainHtml
 
 GridDlg.gridOn = True
