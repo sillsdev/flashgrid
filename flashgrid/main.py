@@ -1,6 +1,7 @@
 import string, random, re
 from aqt.utils import showInfo
 from anki.utils import json
+from aqt.utils import restoreGeom, saveGeom
 from aqt import mw
 from aqt.qt import *
 #from aqt.utils import showInfo, askUserDialog, getFile
@@ -20,6 +21,7 @@ class GridDlg(QDialog):
 
     _appLabel="FlashGrid v0.14"
     _gridSize = 2
+    _gkey = "FlashGridPopup" 
     
     @staticmethod
     def toggleGridSize():
@@ -58,6 +60,7 @@ class GridDlg(QDialog):
                 
 
     def closeMaybe(self, n):
+        self.saveGeo()
         if (n == 0 or n == self.correct):  # 0 = cancel
             self.done(n)
             
@@ -83,6 +86,31 @@ class GridDlg(QDialog):
 
         # Prepare the HTML container (i.e. grid without flashcard content)
 
+    def setGeo(self):
+        gkey = GridDlg._gkey
+        mem = gkey + "Geom" in mw.pm.profile
+        if not mem:
+            # I have no memory of this...
+            screen = QDesktopWidget().screenGeometry()
+            screen = QDesktopWidget().availableGeometry() 
+            width = screen.width() - 10
+            height = screen.height() - 20
+            self.setGeometry(0, 0, width, height) # may be too big, esp. if primary monitor is not the highest res
+            self.show() # detect and adjust if the window got sized down by the OS (usually it's just a few pixels)
+            self.move(0, 0)
+        else:
+            # I remember a size and location
+            restoreGeom(self, gkey, offset=None, adjustSize=False)
+            self.show()
+
+    def saveGeo(self):
+        saveGeom(self, GridDlg._gkey)  # remember this size and location for next time
+
+    @staticmethod
+    def resetGeo():
+        tmp = mw.pm.profile.pop(GridDlg._gkey + "Geom", None)  # forget any size/location info we might have
+        return tmp
+         
     
     @staticmethod
     def toLetter(n):
@@ -362,7 +390,12 @@ GridDlg.gridOn = True
 
 def onGridOffOnClicked():
     GridDlg.gridOn = not GridDlg.gridOn
-    tmp = "On" if GridDlg.gridOn else "Off"
+    if GridDlg.gridOn:
+        tmp = "On."
+    else: 
+        tmp = "Off. Popup window size reset."
+        GridDlg.resetGeo()
+        
     msgBox("FlashGrids are now %s" % (tmp))  # msgbox / messagebox
 
 def onSizeClicked():

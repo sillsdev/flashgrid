@@ -50,22 +50,12 @@ def doGrid():
     #time.sleep(2)
 
     w = GridDlg(rev)
-    screen = QDesktopWidget().screenGeometry()
-    width = screen.width() - 5
-    height = screen.height() - 10
-    w.setGeometry(0, 0, width, height) # may be too big, esp. if primary monitor is not the highest res
+    w.setGeo()
     
-    w.show() # detect and adjust if the window got sized down by the OS (usually it's just a few pixels)
     width = w.size().width()
     height = w.size().height()
-    #w.resize(800, 530)  # dialog window size: W, H
     
-    #w.move(224,150) # TODO: automate this based on screen size, but remember (this session) if the user moves/resizes it.
-    # One option is to just not to destroy the object on close. 
-    # But probably better to use Anki's utility for remembering size: utils.saveGeom()
-    w.move(0, 0)
-    
-    v = w.ui.gridView  # we expect type of v to be: QtWebKit.QWebView or its AnkiWebView subclass
+    v = w.ui.gridView  # note: we expect type of v to be: QtWebKit.QWebView or its AnkiWebView subclass
 
     # would prefer Qt.ScrollBarAsNeeded but somehow this object thinks it's always needed
     v.page().mainFrame().setScrollBarPolicy(Qt.Horizontal, Qt.ScrollBarAlwaysOff)
