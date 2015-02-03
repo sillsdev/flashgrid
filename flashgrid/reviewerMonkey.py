@@ -44,7 +44,7 @@ def doGrid():
     if staleCard(rev.card):
         return False # No, actually. We already just showed this card
 
-    print 'show grid'
+    # print 'show grid'
 
     #import time
     #time.sleep(2)

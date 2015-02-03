@@ -19,7 +19,7 @@ def msgBox(m):
 
 class GridDlg(QDialog):
 
-    _appLabel="FlashGrid v0.14"
+    _appLabel="FlashGrid v0.15"
     _gridSize = 2
     _gkey = "FlashGridPopup" 
     
@@ -94,7 +94,7 @@ class GridDlg(QDialog):
             screen = QDesktopWidget().screenGeometry()
             screen = QDesktopWidget().availableGeometry() 
             width = screen.width() - 10
-            height = screen.height() - 20
+            height = screen.height() - 25
             self.setGeometry(0, 0, width, height) # may be too big, esp. if primary monitor is not the highest res
             self.show() # detect and adjust if the window got sized down by the OS (usually it's just a few pixels)
             self.move(0, 0)
@@ -322,7 +322,7 @@ def gridHtml(style='', head='', klass='card', width=800-20, height=600-40):
     rowHeight = int (100 / GridDlg._gridSize)  # gives a pct: 50% or 33%  
     
     
-    replayAudio = '<a href="replayAudio">Replay Audio</a>'
+    replayAudio = '<a href="replayAudio">Replay Media</a>'
     
     mainHtml = '''
 <!doctype html>

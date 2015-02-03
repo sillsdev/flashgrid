@@ -99,9 +99,11 @@ class DeckDuper(object):
         n2.flush(intTime()) #save
         #n2.load()
         
-        # Copy its cards (technically shouldn't be necessary since they should auto-generate, but how else
-        # to specify a target deck? Also, we're being careful because orphaned notes are inaccessible in Anki's UI.
+        # Copying its cards technically shouldn't be necessary since they should auto-generate. (Make sure they do? Orphaned notes are inaccessible in Anki's UI.)
+
+        # It would be nice to copy c.queue , at least if it's -1 (suspended)
         
+        # But we do need actual cards in order to specify a target deck.
         cardCount = mw.col.addNote(n2)
         if cardCount:
             q = "select distinct cards.id from cards where cards.nid = %s" % (n2.id)
@@ -236,7 +238,7 @@ def onCopyDeckClicked():
     dupMids = [unicode(m['id']) for m in models]  # assume "Clone all"
 
     modelNames = [m['name'] for m in models]
-    q = ''' The current deck (%s) uses these models:
+    q = ''' The current deck (%s) uses these Note Types:
 %s
 Do you want the copied deck to share these settings, or
 do you want to clone the settings?
@@ -268,9 +270,11 @@ do you want to clone the settings?
     dd = DeckDuper(deck)
     _tmp = dd.dupDeck(dupMids)
     
-    # mw.reset(True) # refresh the screen so the new deck is visible
+    
+    # refresh the screen so the new deck is visible
+    mw.moveToState("deckBrowser")
 
-    msg = 'Successfully copied %s notes and %s cards (without their scheduling info). \n' % (dd.notesCopied, dd.cardsCopied)
+    msg = 'Successfully copied %s notes, and generated %s cards (with fresh scheduling info). \n' % (dd.notesCopied, dd.cardsCopied)
     if dd.errorCount:
         s = list(dd.errors)
         summary = ' '.join(s)
