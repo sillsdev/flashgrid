@@ -19,7 +19,7 @@ def msgBox(m):
 
 class GridDlg(QDialog):
 
-    _appLabel="FlashGrid v0.16"
+    _appLabel="FlashGrid v0.17"
     _gridSize = 2
     _gkey = "FlashGridPopup" 
     
