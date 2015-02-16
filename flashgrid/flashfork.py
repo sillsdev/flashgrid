@@ -288,6 +288,8 @@ action = QAction("Copy deck...", mw)
 mw.connect(action, SIGNAL("triggered()"), onCopyDeckClicked)
 mw.form.menuTools.addAction(action)
 
+import apkgWarning
+
 
 
 
