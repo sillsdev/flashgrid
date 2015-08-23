@@ -2,6 +2,9 @@
 It adds a grid dialog (currently as a popup window)
 '''
 
+# This 'monkey' file is responsible for loading FlashGrid and some workarounds.
+# It actually only includes one true monkey patch, which is at the end and may be disabled.
+
 from aqt.reviewer import Reviewer
 from aqt import mw
 from aqt.qt import *
@@ -94,6 +97,10 @@ from anki.hooks import addHook
 addHook('showQuestion', onShowQuestion)
 addHook('reviewCleanup', reset)
 
+# The following patch to Reviewer._initWeb works fine but is not guaranteed 
+# to work with future versions of Anki. Only enable it if there is a developer 
+# actively maintaining FlashGrid.
+
 # B. Using a monkey patch.
 '''
 Reviewer._origShowQuestion = Reviewer._showQuestion
@@ -105,7 +112,7 @@ def myShowQuestion(self):
 Reviewer._showQuestion = myShowQuestion
 '''
 
-# This MONKEY PATCH fixes a bug where the Anki code is in the wrong order
+# This MONKEY PATCH fixes a bug where the Anki code is in the wrong order, resulting in this bug.
 # BUG: first card does not auto-advance when the user clicks the correct grid cell. Subsequent cards do.
 '''
 def myInitWeb(self):
