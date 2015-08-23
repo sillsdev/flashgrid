@@ -22,6 +22,17 @@ class GridDlg(QDialog):
     _appLabel="FlashGrid v0.17"
     _gridSize = 2
     _gkey = "FlashGridPopup" 
+
+    @staticmethod
+    def gridOn():
+        if not mw.col.conf.has_key('FlashGrid'):
+            mw.col.conf['FlashGrid'] = {'gridOn': True}
+        return mw.col.conf['FlashGrid']['gridOn']
+
+    @staticmethod
+    def setGridOn(val):  # assumption: gridOn() will always have been called at least once before this
+        mw.col.conf['FlashGrid']['gridOn'] = val
+
     
     @staticmethod
     def toggleGridSize():
@@ -386,11 +397,9 @@ function _append (id, t) {
 ''' % (style, height, height, maxImgW, maxImgH, rowHeight, head, klass, replayAudio, GridDlg._appLabel)
     return mainHtml
 
-GridDlg.gridOn = True
-
 def onGridOffOnClicked():
-    GridDlg.gridOn = not GridDlg.gridOn
-    if GridDlg.gridOn:
+    GridDlg.setGridOn(not GridDlg.gridOn())  #toggle
+    if GridDlg.gridOn():
         tmp = "On."
     else: 
         tmp = "Off. Popup window size reset."
@@ -402,6 +411,7 @@ def onSizeClicked():
     from aqt.reviewer import Reviewer
     GridDlg.toggleGridSize()
 
+mw.form.menuTools.addSeparator()
 stringGen = "FlashGrid toggle off/on"
 # create a new menu item in Anki
 action = QAction(stringGen, mw)

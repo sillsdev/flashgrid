@@ -36,7 +36,7 @@ def reset():
 # Returns True if we should advance to the Answer (because user clicked the correct answer cell)
 def doGrid():
     
-    if not GridDlg.gridOn: return False
+    if not GridDlg.gridOn(): return False
 
     rev = mw.reviewer
     
