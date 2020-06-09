@@ -7,7 +7,6 @@ ECHO ON
 REM copy all modified (D) files and folders (even E, empty ones), and overwrite (Y) without prompting
 REM (Like Anki's own deployment, this does NOT remove any files. The simplest way to do so manually here is to delete the addons folder, then re-run.)
 
-xcopy /D /Y flashgr.py %APPDATA%\Anki2\addons21\
 xcopy /D /E /Y .\flashgrid\*.* %APPDATA%\Anki2\addons21\flashgrid\
 
 PAUSE

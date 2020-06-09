@@ -4,12 +4,11 @@ from anki.utils import json
 from aqt.utils import restoreGeom, saveGeom
 from aqt import mw
 from aqt.qt import *
-#from aqt.utils import showInfo, askUserDialog, getFile
-#from aqt.utils import mungeQA, getBase, openLink, tooltip, askUserDialog
 from aqt.webview import AnkiWebView
 from aqt.reviewer import Reviewer
-from anki.sound import playFromText, clearAudioQueue
-from grid import Ui_gridDialog
+from flashgrid.grid import Ui_gridDialog
+from PyQt5 import QtCore
+
    # TODO in grid.ui: CHANGES TO REDO IN DESIGNER: use of AnkiWebView; removal of Ok/Cancel buttons
    # OR, eliminate grid.py altogether (it's just one UI element anyway)
 
@@ -19,62 +18,70 @@ def msgBox(m):
 
 class GridDlg(QDialog):
 
-    _appLabel="FlashGrid v0.17"
+    _appLabel = "FlashGrid v0.18"
     _gridSize = 2
-    _gkey = "FlashGridPopup" 
+    _gkey = "FlashGridPopup"
+    _closepopupCommand = "http://closepopup"
+    _replayaudioCommand = "http://replayaudio"
 
     @staticmethod
     def gridOn():
-        if not mw.col.conf.has_key('FlashGrid'):
+        if 'FlashGrid' not in mw.col.conf:
             mw.col.conf['FlashGrid'] = {'gridOn': True}
         return mw.col.conf['FlashGrid']['gridOn']
 
     @staticmethod
     def setGridOn(val):  # assumption: gridOn() will always have been called at least once before this
         mw.col.conf['FlashGrid']['gridOn'] = val
-
     
     @staticmethod
     def toggleGridSize():
         GridDlg._gridSize = 3 if (GridDlg._gridSize == 2) else 2
         msgBox("Ok. Toggled to %s x %s." % (GridDlg._gridSize, GridDlg._gridSize))  # msgbox / messagebox
 
-    def _myLinkHandler(self, url):
-        ''' Handles when the user clicks on a table cell or the Replay Audio link
-        '''
+    def setCloseCallback(self, cb):
+        self._onClose = cb
+
+    def handleLinkClick(self, url):
+        # Handles when the user clicks on a table cell or the Replay Audio link
         url = url.lower()
-        if "closepopup" in url:
+        if GridDlg._closepopupCommand.lower() in url:
             ret = 0
             try:
-                label, val = url.split(":")
-                val = int(val)
+                label, val = url.split("#")
+                val = int(val[:-1]) # extract the user's clicked number
                 if (val > 0):
                     ret = val
             except ValueError:
                 pass # i.e. ret = 0
             self.closeMaybe(ret)
         
-        if "replayaudio" in url:
+        if GridDlg._replayaudioCommand.lower() in url:
             mw.reviewer.replayAudio()
             
     def _myKeyHandler(self, evt):
-        #key = evt.key()
         key = evt.text().lower()
-        if key == u'r':
+        if key == 'r':
             mw.reviewer.replayAudio()
             return
 
-        ua = unicode(string.lowercase, errors='ignore')
-        if key and key in ua:
+        if key and key in string.ascii_lowercase:
             number = GridDlg.toNumber(key)
             self.closeMaybe(number)
-                
+
 
     def closeMaybe(self, n):
         self.saveGeo()
-        if (n == 0 or n == self.correct):  # 0 = cancel
+        if n == 0: # 0 = cancel
+            if self._onClose:
+                self._onClose(False)
             self.done(n)
-            
+        elif n == self.correct:
+            if self._onClose:
+                self._onClose(True)
+            self.done(n)
+
+
     def __init__(self, reviewer):
         QDialog.__init__(self)
         
@@ -82,20 +89,15 @@ class GridDlg(QDialog):
         self.ui = Ui_gridDialog()
         self.ui.setupUi(self)
 
+        # set modal
+        self.setWindowModality(QtCore.Qt.ApplicationModal)
+
         v = self.ui.gridView
-        v.setLinkHandler(self._myLinkHandler)
-        v.setKeyHandler(self._myKeyHandler)
-        
-        # WARNING: the following could interfere with other addons, or future versions of Anki
-        #reviewer.web.setKeyHandler(self._myKeyHandler) # just for convenience, when the grid isn't showing
-        
-        self.correct = random.randint(1, GridDlg._gridSize**2)  # e.g. a number from 1 to 4 (inclusive)
+        v._page.setLinkHandler(self)
+        self.keyPressEvent = self._myKeyHandler
 
-        # Connect up the buttons.
-        #self.ui.okButton.clicked.connect(self.accept)
-        #self.ui.cancelButton.clicked.connect(self.reject)    
+        self.correct = random.randint(1, GridDlg._gridSize ** 2)  # e.g. a number from 1 to 4 or 9 (inclusive)
 
-        # Prepare the HTML container (i.e. grid without flashcard content)
 
     def setGeo(self):
         gkey = GridDlg._gkey
@@ -114,227 +116,146 @@ class GridDlg(QDialog):
             restoreGeom(self, gkey, offset=None, adjustSize=False)
             self.show()
 
+
     def saveGeo(self):
         saveGeom(self, GridDlg._gkey)  # remember this size and location for next time
 
     @staticmethod
     def resetGeo():
-        tmp = mw.pm.profile.pop(GridDlg._gkey + "Geom", None)  # forget any size/location info we might have
-        return tmp
+        return mw.pm.profile.pop(GridDlg._gkey + "Geom", None)  # forget any size/location info we might have
          
     
     @staticmethod
     def toLetter(n):
-        letters = string.lowercase  #OR alphabet = string.letters[26:52] # grabbing the lowercase ones 
-        tmp = letters[n-1]
-        return tmp
+        return string.ascii_lowercase[n - 1]
+
     
     @staticmethod
     def toNumber(c):
-        tmp = ord(c) - ord('a') + 1   # our numbering scheme is not zero-based
-        return tmp
+        return ord(c) - ord('a') + 1   # our numbering scheme is not zero-based
     
-    def showAnswerGrid(self, card, rev):
+    def showAnswerGrid(self, card, rev, baseURL):
         dialog = self
-        
         view = dialog.ui.gridView
-    
+
+        # set commands on the custom page to recognise special link handler
+        view.page().setSpecialLinks([GridDlg._closepopupCommand, GridDlg._replayaudioCommand])
+
         cardFrontHtml = renderOneQA(rev, card, "question")
-        tmp = json.dumps(cardFrontHtml)
-        tmp = '_append("%s", %s);' % ('fgCardFront', tmp)
-        view.page().mainFrame().evaluateJavaScript(tmp)
-       
+
+        klass = "card card{}".format(card.ord + 1)
+        width = int(0.96 * self.size().width())
+        height = int(0.96 * self.size().height())
+        buffer = 60 # e.g. for the window's title bar, and a bottom 'margin'
+        html = gridHtml('', klass, width, height - buffer)
+
+        htmlFinal = html.replace("##fgCardFront##", cardFrontHtml)
+
         gridw = GridDlg._gridSize
-        gridh = gridw # still assuming a square grid (for now anyway)
-        size = gridh*gridw
+        size = gridw ** 2 # still assuming a square grid (for now anyway)
         
-        dummy = '''
-not found
-'''
+        dummy = '\nnot found\n'
         cards = [dummy for i in range(size)] # i.e. 4 or 9 dummies
         cards[dialog.correct-1] = renderOneQA(rev, card, "answer")  # put in the real answer 
     
         deckName = mw.col.decks.current()['name']
-        search = '-is:suspended deck:"%s"' % deckName
-        cardsFound = mw.col.findCards(search)  #e.g.  '-is:suspended deck:indonesian-lift-dictionary-Orig'
+        search = '-is:suspended deck:"{}"'.format(deckName)
+        cardsFound = mw.col.findCards(search)  # e.g.  '-is:suspended deck:indonesian-lift-dictionary-Orig'
+        cardsFound = cardsFound or [] # using object or evaluation to ensure list
         random.shuffle(cardsFound)
-        cardsFound = cardsFound or []
         
         i = 0
         for c in cardsFound:  # at most; but usually we'll quit after gridw*gridh
-            id = i+1  # these are offset by one since grid's id-numbering is 1-based but array is 0-based
-            if (id > size):
+            id = i + 1  # these are offset by one since grid's id-numbering is 1-based but array is 0-based
+            if id > size:
                 break
-            if (c == card.id) or (id == dialog.correct):  # don't use current card nor steal its cell
+            if c == card.id or id == dialog.correct:  # don't use current card nor steal its cell
                 i += 1
                 continue
             else:
-                cellCard = mw.col.getCard(c) # mw.col.findCards("cid:%s" % c)
+                cellCard = mw.col.getCard(c)
                 if not cellCard or (cellCard.template() != card.template()):
                     # do NOT increment i
                     continue  # something went wrong finding that card (throw exception?)
     
             cards[i] = renderOneQA(rev, cellCard, "answer")
-    
+
             i += 1
-        
-        klass = "card card%d" % (card.ord+1)
 
         for i in range(size):
-            txt = cards[i]
-            id = i+1
-            cards[i] = '<td class="%s">%s</td>' % (klass, gridHtmlCell(id, txt))
-            if ((id % gridw == 0) and (id < size)):  # use modulus to identify/create end of row
+            id = i + 1
+            cards[i] = '<td class="{}">{}</td>'.format(klass, gridHtmlCell(id, cards[i]))
+            if id % gridw == 0 and id < size:  # use modulus to identify/create end of row
                 cards[i] += gridHtmlBetweenRows()
 
         toInsert = '\n'.join(cards)
     
-        toInsert = '''<table class="%s"><tbody><tr>
-        %s
-        </tr></tbody></table>''' % (klass, toInsert) 
+        toInsert = '''<table class="{}"><tbody><tr>
+        {}
+        </tr></tbody></table>'''.format(klass, toInsert)
 
-        tmp = json.dumps(toInsert)
-        tmp = '_append("%s", %s);' % ('fgCardGridArea', tmp)
-    
-        #self.web.eval(tmp)  # NO, instead of the Reviewer doing this, have the popup view do it
-        view.page().mainFrame().evaluateJavaScript(tmp)
-    
-        #self._showEaseButtons() # NO, not in the grid
-       
-        h = view.page().mainFrame().toHtml()
-        h = h.encode('utf-8')
-        f = open('gridtemp.tmp.html', 'w')  # this file is very helpful when debugging, because you can open it in a browser, experiment with its CSS, etc. 
-        f.write(h)
-        f.close()
-        
+        htmlFinal = htmlFinal.replace("##fgCardGridArea##", toInsert)
+        view.page().setHtml(htmlFinal, QUrl.fromLocalFile(baseURL))
+
+        # enable for debug saving:
+        # htmlRender(htmlFinal)
+
+
+def htmlRender(html):
+    # this typically saves in the collections.media folder under the user app data
+    with open('gridtemp.tmp.html', 'w', encoding='utf-8') as f:
+        f.write(html)
+
+
 def renderOneQA(rev, card, qa = "answer"):
-    ''' Creates HTML to plug into the specified grid cell.
-    '''
+    # Creates HTML to plug into the specified grid cell.
 
     origState = rev.state
     rev.state = qa  # necessary to get correct results from _mungeQA()
-    
-    c = card
-    
-    if qa == "answer":
-        html = c.a()  #BACK
 
-        #if there's a way to reach in and remove CardFront
-        #before it is rendered to html, that would be better.
-        '''
-        afmt = c.template()['afmt']
-        if GridDlg.needRemoveFront(afmt):
-            af = removeFront(afmt)
-            # temporarily swap afmt and af
-        '''
-    else:
-        html = c.q()  #FRONT
+    # back or front of card depending on qa
+    html = card.a() if qa == "answer" else card.q()
     
     # play audio?  # NO, not in the grid
-    
     html = rev._mungeQA(html)
     html = removeFront(html)
-    a = html
-    klass = "card card%d" % (c.ord+1)
-    #tmp = "_updateA(%s, true, %s);" % (json.dumps(a), klass)
 
     # DON'T show answer / ease buttons
 
     rev.state = origState
 
-    html = a
-    # html = json.dumps(a) # NOT until we've added our html
-
-    # user hook
-    #runHook('showAnswer')  # NO, we assume other addons' behavior here is unwanted
-
     return html
 
-    tmp = '<div class="%s">%s</div>' % (klass, html)  # problem: it's hard to stretch this div vertically to fill its containing td
-    return tmp
-
-    #Would using frames (iframes) allow us to zoom out instead of trying to resize images and fonts?        
-    #frames = v.page().mainFrame().childFrames()
-    #for frame in frames:
-    #    frame.setHtml(h1)
-    #frames[0].setHtml(h2)
-    #v.setHtml(h2)
-    
-
-'''    
-def needRemoveFront(cardString):
-    return ("{{FrontSide}}" in cardString) or ("<hr" in cardString) 
-'''
 
 def removeFront(cardString):
-    s2 = s = cardString
-    #pat = '(?s){{FrontSide}}.*<hr.*?>'
-    #s2 = re.sub(pat, '', s)
-    #pat = '(?s)({{FrontSide}}|<hr.*?>)'  # use this if we get the monkey patch working
-    pat = '(?s)</style>.*?<hr.*?>'  # for now, just chop off anything preceding the first <hr>, if one exists 
-    s3 = re.sub(pat, '</style>', s2)
-    return s3
+    pat = '(?s)</style>.*?<hr.*?>'  # for now, just chop off anything preceding the first <hr>, if one exists
+    return re.sub(pat, '</style>', cardString)
 
-'''    
-def extractStyle(html):
-    s, h = '', html
-    import re
-    pat = "(?s)<style>.*?</style>"
-    match = re.search(pat, html)
-    if match:
-        s = match.group(0)
-        html = re.sub(pat, '', html)
-    return s, h
-'''
-   
 def gridHtmlCell(cellId, content, linkLabel=None):
-    ''' To get no label, you must explicitly pass in an empty string.
-    '''
-    if (linkLabel != ''):
+    # To get no label, you must explicitly pass in an empty string.
+    if linkLabel != '':
         cellLetter = GridDlg.toLetter(cellId)
-        linkLabel = '%s.' % cellLetter
+        linkLabel = '{}.'.format(cellLetter)
     else:
         linkLabel = ''
-    
-    #cellLetter = GridDlg.toLetter(cellId)
-    
-    tmp = '''<a href="closePopup:%s">
-  %s <br/>
-%s</a>
-''' % (cellId, linkLabel, content)
-    return tmp
-    
-    tmp = '''
-<div id="%s" class="card" style="cursor:pointer">
-  <a href="closePopup:%s">
-  %s <br/>
-%s</a>
-</div>
-''' % (cellId, cellId, linkLabel, content)
-    return tmp
 
-def gridHtmlBetweenRows(): 
-    return '''
-</tr><tr>
-'''
-        
-        
-def gridHtml(style='', head='', klass='card', width=800-20, height=600-40):
+    # PDB all url formats must start http:// to be a valid QUrl
+    return '<a href="{}#{}/">{}<br/>{}</a>'.format(GridDlg._closepopupCommand, cellId, linkLabel, content)
+
+
+def gridHtmlBetweenRows():
+    return '\n</tr><tr>\n'
+
+def gridHtml(style='', klass='card', width = 800-20, height = 600-40):
     # TODO: find a way to use % rather than px in the CSS, yet still handle vertical spacing
-    
     buffer = 20
     maxCellW = (width / (GridDlg._gridSize + 1)) - buffer
     maxImgW = int( maxCellW * 0.8 )  # image shouldn't use more than 80% of a cell's width
     maxCellH = (height / GridDlg._gridSize) - buffer
     maxImgH = int( maxCellH * 0.7 )
-    
     # works for img, but not sure how to use maxImgH to enforce the max cell height
-    
-    rowHeight = int (100 / GridDlg._gridSize)  # gives a pct: 50% or 33%  
-    
-    
-    replayAudio = '<a href="replayAudio">Replay Media</a>'
-    
+    rowHeight = int (100 / GridDlg._gridSize)  # gives a pct: 50% or 33%
+    replayAudio = '<a href="{}/">Replay Media</a>'.format(GridDlg._replayaudioCommand)
     mainHtml = '''
 <!doctype html>
 <html>
@@ -342,59 +263,54 @@ def gridHtml(style='', head='', klass='card', width=800-20, height=600-40):
 <head><meta charset="utf-8"/>
 <style>
 /* from Anki: */
-button {
-font-weight: normal;
-}
 
-%s
+/* note double braces here & through-out this literal in the python code for escaping */
+button {{
+font-weight: normal;
+}}
+
+{}
 
 /* unique to FlashGrid */
-html, body, table { height:%spx; max-height:%spx; table-layout:fixed}  /* 100%% height doesn't appear to work; 'fixed' gives equal column widths */
-img { max-width: %spx; max-height: %spx; }
-#fgDialog {position:absolute; width:92%%; height:86%%}
-  #fgFrontArea {position:absolute; width:20%%; height 100%%;}
-    #fgCardFront  {width:100%%; }
-    #typeans { width: 80%% }
-  #fgCardGridArea {position:absolute; right:0; width:77%%; height 100%%;}
-    table {width:100%%;}
-      td {text-align:left; border:2px solid white;}
-      tr {height: %s%%;}
-      table.card td {vertical-align:top; cursor:pointer;}
-      table.card td a {display:block; text-decoration:none; height:100%%;}
-      table.card td:hover {background:#CCCCCC;color:#CCCCFF} /* */
+html, body, table {{height:{}px; max-height:{}px; table-layout:fixed;}}  /* 100% height doesn't appear to work; 'fixed' gives equal column widths  */
+img {{ max-width: {}px; max-height: {}px; }}
+#fgDialog {{position:absolute; width:92%; height:86%}}
+  #fgFrontArea {{position:absolute; width:20%; height 100%;}}
+    #fgCardFront  {{width:100%; }}
+    #typeans {{ width: 80% }}
+  #fgCardGridArea {{position:absolute; right:0; width:77%; height 100%;}}
+    table {{width:100%;}}
+      td {{text-align:left; border:2px solid white;}}
+      tr {{height: {}%;}}
+      table.card td {{vertical-align:top; cursor:pointer;}}
+      table.card td a {{display:block; text-decoration:none;}} /* height:100%; */
+      table.card td:hover {{background:#CCCCCC;color:#CCCCFF}} /* */
 </style>
-<script>
-function _append (id, t) {
-  var target = document.getElementById(id);
-  target.innerHTML += t;
-}
-</script>
-%s
 </head>
 <body class="">
 <!-- <div id=qa></div>
-<p><a href="closePopup">close</a></p> -->
+<p><a href="http://closePopup/">close</a></p> -->
 
 <div id="fgDialog">  <!-- outer 'table', 1x2 -->
 
   <!-- show front of main card on the left -->
   <div id="fgFrontArea">
-    <div id="fgCardFront" class="%s"></div>
-    <p>%s</p>
-    <p>%s</p>
+    <div id="fgCardFront" class="{}">##fgCardFront##</div>
+    <p>{}</p>
+    <p>{}</p>
   </div>
 
   <!-- inner table, will be NxN based on gridSize setting -->
 
 
-  <div id="fgCardGridArea"></div>
+  <div id="fgCardGridArea">##fgCardGridArea##</div>
 
 
 </div> 
 </body>
 
 </html>
-''' % (style, height, height, maxImgW, maxImgH, rowHeight, head, klass, replayAudio, GridDlg._appLabel)
+'''.format(style, height, height, maxImgW, maxImgH, rowHeight, klass, replayAudio, GridDlg._appLabel)
     return mainHtml
 
 def onGridOffOnClicked():
@@ -404,11 +320,10 @@ def onGridOffOnClicked():
     else: 
         tmp = "Off. Popup window size reset."
         GridDlg.resetGeo()
-        
-    msgBox("FlashGrids are now %s" % (tmp))  # msgbox / messagebox
+
+    msgBox("FlashGrids are now {}".format(tmp))
 
 def onSizeClicked():
-    from aqt.reviewer import Reviewer
     GridDlg.toggleGridSize()
 
 mw.form.menuTools.addSeparator()
@@ -416,12 +331,94 @@ stringGen = "FlashGrid toggle off/on"
 # create a new menu item in Anki
 action = QAction(stringGen, mw)
 # set it to call our function when it's clicked
-mw.connect(action, SIGNAL("triggered()"), onGridOffOnClicked)
+action.triggered.connect(onGridOffOnClicked)
 # and add it to the tools menu
 mw.form.menuTools.addAction(action)
 
 action = QAction("FlashGrid toggle grid size", mw)
-mw.connect(action, SIGNAL("triggered()"), onSizeClicked)
+action.triggered.connect(onSizeClicked)
 mw.form.menuTools.addAction(action)
 
+''' OLD CODE
 
+#from aqt.utils import showInfo, askUserDialog, getFile
+#from aqt.utils import mungeQA, getBase, openLink, tooltip, askUserDialog
+from anki.sound import playFromText, clearAudioQueue
+
+from showAnswerGrid:
+        # tmp = json.dumps(cardFrontHtml)
+        # tmp = '_append("%s", %s);' % ('fgCardFront', tmp)
+        #view.page().mainFrame().evaluateJavaScript(tmp)
+        #PDB
+        # view.eval(tmp)
+        
+        #tmp = json.dumps(toInsert)
+        #tmp = '_append("%s", %s);' % ('fgCardGridArea', tmp)
+
+        #view.page().mainFrame().evaluateJavaScript(tmp)
+        # PDB
+        #view.eval(tmp)
+        #  view.page().toHtml(htmlRenderCallback)   
+        
+from gridHtml:
+
+#cellLetter = GridDlg.toLetter(cellId)
+
+from onSizeClicked:
+
+    from aqt.reviewer import Reviewer
+
+def extractStyle(html):
+    s, h = '', html
+    import re
+    pat = "(?s)<style>.*?</style>"
+    match = re.search(pat, html)
+    if match:
+        s = match.group(0)
+        html = re.sub(pat, '', html)
+    return s, h
+
+
+from renderOneQA:
+
+
+    a = html   
+    html = a
+        #if there's a way to reach in and remove CardFront
+        #before it is rendered to html, that would be better.
+        afmt = c.template()['afmt']
+        if GridDlg.needRemoveFront(afmt):
+            af = removeFront(afmt)
+            # temporarily swap afmt and af   
+    #tmp = "_updateA(%s, true, %s);" % (json.dumps(a), klass)
+
+
+    tmp = '<div class="%s">%s</div>' % (klass, html)  # problem: it's hard to stretch this div vertically to fill its containing td
+    return tmp
+
+    #Would using frames (iframes) allow us to zoom out instead of trying to resize images and fonts?
+    #frames = v.page().mainFrame().childFrames()
+    #for frame in frames:
+    #    frame.setHtml(h1)
+    #frames[0].setHtml(h2)
+    #v.setHtml(h2)
+
+def needRemoveFront(cardString):
+    return ("{{FrontSide}}" in cardString) or ("<hr" in cardString) 
+
+from removeFront:
+    s2 = s = cardString
+    #pat = '(?s){{FrontSide}}.*<hr.*?>'
+    #s2 = re.sub(pat, '', s)
+    #pat = '(?s)({{FrontSide}}|<hr.*?>)'  # use this if we get the monkey patch working  
+
+javascript from the html template in the head - no longer used
+
+<script>
+function _append (id, t) {
+  var target = document.getElementById(id);
+  target.innerHTML += t;
+}
+</script>
+
+'''

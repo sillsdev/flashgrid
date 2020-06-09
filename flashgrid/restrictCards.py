@@ -1,7 +1,6 @@
 from aqt import mw
 from aqt.qt import *
 
-
 def onRestrictClicked():
     cardType = "Comprehension"
     noteType = "Word"
@@ -12,5 +11,5 @@ def onRestrictClicked():
     mw.onCram(query) #  ('card:"my card type"')
 
 action = QAction("filtered deck for one card type", mw)
-mw.connect(action, SIGNAL("triggered()"), onRestrictClicked)
+action.triggered.connect(onRestrictClicked)
 mw.form.menuTools.addAction(action)
