@@ -19,7 +19,7 @@ def msgBox(m):
 
 class GridDlg(QDialog):
 
-    _appLabel = "FlashGrid v0.18"
+    _appLabel = "FlashGrid v0.20"
     _gridSize = 2
     _gkey = "FlashGridPopup"
     _closepopupCommand = "http://closepopup"
@@ -167,6 +167,8 @@ class GridDlg(QDialog):
         
         i = 0
         for c in cardsFound:  # at most; but usually we'll quit after gridw*gridh
+            if c == None: # If c is empty, do no more
+                continue
             id = i + 1  # these are offset by one since grid's id-numbering is 1-based but array is 0-based
             if id > size:
                 break
@@ -175,7 +177,7 @@ class GridDlg(QDialog):
                 continue
             else:
                 cellCard = mw.col.getCard(c)
-                if not cellCard or (cellCard.template() != card.template()):
+                if cellCard == None or (cellCard.template() != card.template()):
                     # do NOT increment i
                     continue  # something went wrong finding that card (throw exception?)
     
@@ -188,16 +190,13 @@ class GridDlg(QDialog):
             try:
                 drop = cards[i] == '\nnot found\n'
             except IndexError:
-                pass # Do nothing
+                continue # Do nothing
             if drop:
-                try:
-                    del cards[i] # Remove the card from the list so it doesn't get displayed.
-                except IndexError:
-                    pass # Dp nothing, it has already gone. 
+               cards[i] = '<td class="{}"></td>' # empty cell?
             else:
                 id = i + 1
                 cards[i] = '<td class="{}">{}</td>'.format(klass, gridHtmlCell(id, cards[i]))
-                if id % gridw == 0 and id < size:  # use modulus to identify/create end of row
+            if id % gridw == 0 and id < size:  # use modulus to identify/create end of row
                     cards[i] += gridHtmlBetweenRows()
 
         toInsert = '\n'.join(cards)
