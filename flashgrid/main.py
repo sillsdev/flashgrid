@@ -11,7 +11,7 @@ from PyQt5 import QtCore
 
    # TODO in grid.ui: CHANGES TO REDO IN DESIGNER: use of AnkiWebView; removal of Ok/Cancel buttons
    # OR, eliminate grid.py altogether (it's just one UI element anyway)
-   # Modified 13 June 2020 to remove 'not found' messages - we eleminate the card in question
+   # Modified 22 June 2020 to remove 'not found' messages - we eleminate the card in question
    # from the list.
 def msgBox(m):
     text = '{}\n\n- {}'.format(m, GridDlg._appLabel)
@@ -184,11 +184,18 @@ class GridDlg(QDialog):
             i += 1
 
         for i in range(size):
-            id = i + 1
-            drop = cards[i] == '\nnot found\n'
+            drop = True
+            try:
+                drop = cards[i] == '\nnot found\n'
+            except IndexError:
+                pass # Do nothing
             if drop:
-                cards.remove(i) # Remove the card from the list so it doesn't get displayed.
-            else: 
+                try:
+                    del cards[i] # Remove the card from the list so it doesn't get displayed.
+                except IndexError:
+                    pass # Dp nothing, it has already gone. 
+            else:
+                id = i + 1
                 cards[i] = '<td class="{}">{}</td>'.format(klass, gridHtmlCell(id, cards[i]))
                 if id % gridw == 0 and id < size:  # use modulus to identify/create end of row
                     cards[i] += gridHtmlBetweenRows()
