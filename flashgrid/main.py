@@ -11,7 +11,7 @@ from PyQt5 import QtCore
 
    # TODO in grid.ui: CHANGES TO REDO IN DESIGNER: use of AnkiWebView; removal of Ok/Cancel buttons
    # OR, eliminate grid.py altogether (it's just one UI element anyway)
-   # Modified 22 June 2020 to remove 'not found' messages - we eleminate the card in question
+   # Modified 25 June 2020 to remove 'not found' messages - we eliminate the card in question
    # from the list.
 def msgBox(m):
     text = '{}\n\n- {}'.format(m, GridDlg._appLabel)
@@ -19,7 +19,7 @@ def msgBox(m):
 
 class GridDlg(QDialog):
 
-    _appLabel = "FlashGrid v0.20"
+    _appLabel = "FlashGrid v0.21"
     _gridSize = 2
     _gkey = "FlashGridPopup"
     _closepopupCommand = "http://closepopup"
@@ -180,11 +180,13 @@ class GridDlg(QDialog):
                 if cellCard == None or (cellCard.template() != card.template()):
                     # do NOT increment i
                     continue  # something went wrong finding that card (throw exception?)
-    
-            cards[i] = renderOneQA(rev, cellCard, "answer")
+            thecard =  renderOneQA(rev, cellCard, "answer")
+            if thecard == None:
+                continue # Did not get a valid card, so get the next one
+            cards[i] = thecard
 
             i += 1
-
+        counter = 0 # We use a counter so we can handle missing cells
         for i in range(size):
             drop = True
             try:
@@ -192,11 +194,12 @@ class GridDlg(QDialog):
             except IndexError:
                 continue # Do nothing
             if drop:
-               cards[i] = '<td class="{}"></td>' # empty cell?
+               cards[i] = "" # empty cell?
             else:
+                counter += 1 # increment
                 id = i + 1
                 cards[i] = '<td class="{}">{}</td>'.format(klass, gridHtmlCell(id, cards[i]))
-            if id % gridw == 0 and id < size:  # use modulus to identify/create end of row
+            if counter % gridw == 0 and id < size:  # use modulus to identify/create end of row
                     cards[i] += gridHtmlBetweenRows()
 
         toInsert = '\n'.join(cards)
@@ -206,10 +209,12 @@ class GridDlg(QDialog):
         </tr></tbody></table>'''.format(klass, toInsert)
 
         htmlFinal = htmlFinal.replace("##fgCardGridArea##", toInsert)
+         # enable for debug saving:
+        #  htmlRender(htmlFinal)
         view.page().setHtml(htmlFinal, QUrl.fromLocalFile(baseURL))
 
         # enable for debug saving:
-        #htmlRender(htmlFinal)
+        # htmlRender(htmlFinal)
 
 
 def htmlRender(html):
