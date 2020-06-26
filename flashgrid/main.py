@@ -1,6 +1,6 @@
 import string, random, re
 from aqt.utils import showInfo
-from anki.utils import json
+#from anki.utils import json
 from aqt.utils import restoreGeom, saveGeom
 from aqt import mw
 from aqt.qt import *
@@ -11,7 +11,7 @@ from PyQt5 import QtCore
 
    # TODO in grid.ui: CHANGES TO REDO IN DESIGNER: use of AnkiWebView; removal of Ok/Cancel buttons
    # OR, eliminate grid.py altogether (it's just one UI element anyway)
-   # Modified 25 June 2020 to remove 'not found' messages - we eliminate the card in question
+   # Modified 26 June 2020 to remove 'not found' messages - we eliminate the card in question
    # from the list.
 def msgBox(m):
     text = '{}\n\n- {}'.format(m, GridDlg._appLabel)
@@ -19,7 +19,7 @@ def msgBox(m):
 
 class GridDlg(QDialog):
 
-    _appLabel = "FlashGrid v0.21"
+    _appLabel = "FlashGrid v0.22"
     _gridSize = 2
     _gkey = "FlashGridPopup"
     _closepopupCommand = "http://closepopup"
@@ -167,7 +167,7 @@ class GridDlg(QDialog):
         
         i = 0
         for c in cardsFound:  # at most; but usually we'll quit after gridw*gridh
-            if c == None: # If c is empty, do no more
+            if c is None: # If c is empty, do no more
                 continue
             id = i + 1  # these are offset by one since grid's id-numbering is 1-based but array is 0-based
             if id > size:
@@ -177,11 +177,11 @@ class GridDlg(QDialog):
                 continue
             else:
                 cellCard = mw.col.getCard(c)
-                if cellCard == None or (cellCard.template() != card.template()):
+                if cellCard is None or (cellCard.template() != card.template()):
                     # do NOT increment i
                     continue  # something went wrong finding that card (throw exception?)
             thecard =  renderOneQA(rev, cellCard, "answer")
-            if thecard == None:
+            if thecard is None:
                 continue # Did not get a valid card, so get the next one
             cards[i] = thecard
 

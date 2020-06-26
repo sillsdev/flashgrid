@@ -9,7 +9,7 @@ from aqt.reviewer import Reviewer
 from aqt import mw
 from anki.utils import isWin
 from flashgrid.main import GridDlg, msgBox
-import flashgrid.main
+#import flashgrid.main
 
 # This workaround doesn't work all that well yet. It's here because Anki triggers showQuestion too often. 
 Reviewer._cardJustShown = None 

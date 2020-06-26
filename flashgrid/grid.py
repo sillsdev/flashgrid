@@ -13,9 +13,11 @@
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
+# Updated 26 June 2020 to fix Pull request warnings.
 
 from PyQt5 import QtCore
-from PyQt5.QtWebEngineWidgets import QWebEngineCertificateError, QWebEnginePage, QWebEngineProfile
+#from PyQt5.QtWebEngineWidgets import QWebEngineCertificateError, QWebEnginePage, QWebEngineProfile
+from PyQt5.QtWebEngineWidgets import QWebEngineProfile
 from PyQt5.QtWidgets import QVBoxLayout, QDialogButtonBox, QApplication
 import aqt.webview
 
