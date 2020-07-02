@@ -6,7 +6,7 @@ from aqt import mw
 from aqt.qt import *
 from aqt.webview import AnkiWebView
 from aqt.reviewer import Reviewer
-from flashgrid.grid import Ui_gridDialog
+from .grid import Ui_gridDialog
 from PyQt5 import QtCore
 
    # TODO in grid.ui: CHANGES TO REDO IN DESIGNER: use of AnkiWebView; removal of Ok/Cancel buttons
@@ -19,7 +19,7 @@ def msgBox(m):
 
 class GridDlg(QDialog):
 
-    _appLabel = "FlashGrid v0.22"
+    _appLabel = "FlashGrid v0.23"
     _gridSize = 2
     _gkey = "FlashGridPopup"
     _closepopupCommand = "http://closepopup"

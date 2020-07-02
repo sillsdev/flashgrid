@@ -8,7 +8,7 @@ It adds a grid dialog (currently as a popup window)
 from aqt.reviewer import Reviewer
 from aqt import mw
 from anki.utils import isWin
-from flashgrid.main import GridDlg, msgBox
+from .main import GridDlg, msgBox
 #import flashgrid.main
 
 # This workaround doesn't work all that well yet. It's here because Anki triggers showQuestion too often. 
