@@ -3,9 +3,9 @@ from aqt.utils import showInfo
 #from anki.utils import json
 from aqt.utils import restoreGeom, saveGeom
 from aqt import mw
-from aqt.qt import *
-from aqt.webview import AnkiWebView
-from aqt.reviewer import Reviewer
+from aqt.qt import QDialog, QAction, QUrl
+#from aqt.webview import AnkiWebView
+#from aqt.reviewer import Reviewer
 from .grid import Ui_gridDialog
 from PyQt5 import QtCore
 
@@ -19,7 +19,7 @@ def msgBox(m):
 
 class GridDlg(QDialog):
 
-    _appLabel = "FlashGrid v0.23"
+    _appLabel = "FlashGrid v0.24"
     _gridSize = 2
     _gkey = "FlashGridPopup"
     _closepopupCommand = "http://closepopup"

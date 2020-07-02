@@ -1,5 +1,5 @@
 from aqt import mw
-from aqt.qt import *
+from aqt.qt import QAction
 
 def onRestrictClicked():
     cardType = "Comprehension"
