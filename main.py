@@ -8,10 +8,12 @@ from aqt.qt import QDialog, QAction, QUrl
 #from aqt.reviewer import Reviewer
 from .grid import Ui_gridDialog
 from PyQt5 import QtCore
+from PyQt5 import QtWidgets
 
    # TODO in grid.ui: CHANGES TO REDO IN DESIGNER: use of AnkiWebView; removal of Ok/Cancel buttons
    # OR, eliminate grid.py altogether (it's just one UI element anyway)
    # Modified 26 June 2020 to remove 'not found' messages - we eliminate the card in question
+   # Modified 12 January 2021 to cure the QDesktopWidget not found error.
    # from the list.
 def msgBox(m):
     text = '{}\n\n- {}'.format(m, GridDlg._appLabel)
@@ -19,7 +21,7 @@ def msgBox(m):
 
 class GridDlg(QDialog):
 
-    _appLabel = "FlashGrid v0.24"
+    _appLabel = "FlashGrid v0.25"
     _gridSize = 2
     _gkey = "FlashGridPopup"
     _closepopupCommand = "http://closepopup"
@@ -105,8 +107,8 @@ class GridDlg(QDialog):
         mem = gkey + "Geom" in mw.pm.profile
         if not mem:
             # I have no memory of this...
-            screen = QDesktopWidget().screenGeometry()
-            screen = QDesktopWidget().availableGeometry() 
+            screen = QtWidgets.QDesktopWidget().screenGeometry()
+            screen = QtWidgets.QDesktopWidget().availableGeometry() 
             width = screen.width() - 10
             height = screen.height() - 25
             self.setGeometry(0, 0, width, height) # may be too big, esp. if primary monitor is not the highest res

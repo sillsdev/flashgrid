@@ -54,3 +54,6 @@ docs/_build/
 target/
 #VS Code
 .vs/
+
+# VS Community
+flashgrid.pyproj
