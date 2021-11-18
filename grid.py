@@ -67,7 +67,7 @@ class Ui_gridDialog(object):
         # PDB new page of inherited class URLClickPage to intercept the hyperlink clicks
         replPage = URLClickPage(self.gridView._onBridgeCmd)
         self.gridView._page = replPage
-        self.gridView._page.setBackgroundColor(self.gridView._getWindowColor())  # reduce flicker
+        self.gridView._page.setBackgroundColor(self.gridView.get_window_bg_color(False))  # reduce flicker
         self.gridView.setPage(replPage)
         self.gridView._page.profile().setHttpCacheType(QWebEngineProfile.NoCache)  # type: ignore
 
